@@ -128,7 +128,7 @@ export default function QRAccessPage() {
       const r = await fetch("/api/parking/access/qr-lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-        body: JSON.stringify(parsed),
+        body: JSON.stringify({ subscription_id: parsed.sid, company_id: parsed.cid }),
       });
       return await r.json();
     } catch { return null; }

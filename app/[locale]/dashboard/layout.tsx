@@ -138,7 +138,6 @@ const sidebarGroups: any[] = [
       { name: "RFID Cards", href: "/dashboard/membership/parking/rfid-cards", icon: "bi-credit-card-2-front", adminOnly: false, resource: "parking_rfid_cards" },
       { name: "Access Control", href: "/dashboard/membership/parking/access", icon: "bi-shield-check", adminOnly: false, resource: "parking_gates" },
       { name: "QR Access", href: "/dashboard/membership/parking/qr-access", icon: "bi-qr-code-scan", adminOnly: false, resource: "parking_gates" },
-      { name: "Desktop App", href: "/en/access-control", icon: "bi-pc-display", adminOnly: false, target: "_blank", resource: "parking_gates" },
       { name: "Subscriptions", href: "/dashboard/membership/parking/subscriptions", icon: "bi-calendar-check", adminOnly: false, resource: "parking_subscriptions" },
       { name: "Sessions", href: "/dashboard/membership/parking/sessions", icon: "bi-clock-history", adminOnly: false, resource: "parking_sessions" },
       { name: "Rates", href: "/dashboard/membership/parking/rates", icon: "bi-cash-coin", adminOnly: false, resource: "parking_rates" },
