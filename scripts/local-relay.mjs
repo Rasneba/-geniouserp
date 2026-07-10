@@ -112,8 +112,8 @@ async function lookupCard(cardUid) {
   const cid = card.company_id || card.member_company_id || 1;
 
   if (!card.member_id) {
-    await logAccess(cardUid, null, null, false, "NO_MEMBER", "Card is not assigned to any member", 0, false, { company_id: cid });
-    return { granted: false, reason: "NO_MEMBER", message: "Card is not assigned to any member" };
+    await logAccess(cardUid, null, null, false, "CARD_NOT_ISSUED", "Card not issued to any member", 0, false, { company_id: cid });
+    return { granted: false, reason: "CARD_NOT_ISSUED", message: "Card not issued to any member" };
   }
 
   const today = new Date().toISOString().split("T")[0];

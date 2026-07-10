@@ -258,7 +258,12 @@ export default function AccessControlPage() {
                 </thead>
                 <tbody>
                   {visibleActivities.map((a, i) => {
-                    const eventText = a.granted ? "Access granted" : (!a.name && a.card ? "Card not registered" : a.note || "Access denied");
+                    const eventText = a.granted
+                      ? (a.event_type === "REMOTE_OPEN" ? "Door opened (button)" : "Access granted")
+                      : a.reason === "CARD_NOT_FOUND" ? "Card not registered"
+                      : a.reason === "CARD_NOT_ISSUED" ? "Card not issued"
+                      : a.reason === "NO_ACTIVE_SUBSCRIPTION" ? "No active subscription"
+                      : a.note || "Access denied";
                     return (
                       <tr key={a.id || i} className={`border-b border-gray-50 transition-colors hover:bg-gray-50/50 ${a.granted ? "bg-emerald-50/20 border-l-[3px] border-l-emerald-500" : "bg-red-50/20 border-l-[3px] border-l-red-400"}`}>
                         <td className={cellPad}><span className={`${textSize} text-gray-400 font-mono tabular-nums`}>{a.time}</span></td>
