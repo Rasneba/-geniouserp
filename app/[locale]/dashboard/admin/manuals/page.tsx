@@ -9,6 +9,7 @@ const sections = [
   { id: "developer", label: "Developer Guide", icon: "bi-code-slash" },
   { id: "dashboard", label: "Dashboard", icon: "bi-speedometer2" },
   { id: "parking", label: "Parking", icon: "bi-car-front" },
+  { id: "access-control", label: "Access Control & Relay", icon: "bi-shield-check" },
   { id: "hrms", label: "HRMS Module", icon: "bi-people" },
   { id: "stock", label: "Stock Module", icon: "bi-boxes" },
   { id: "sales", label: "Sales Module", icon: "bi-cart" },
@@ -527,6 +528,9 @@ Super Admin → Register Company → Issue License → Create Company Admin
                       <tr><td>12</td><td>Kiosk</td><td><i className="bi bi-pc-display"></i></td><td>Self-service entry. Look up registered customer or enter walk-in name/phone → choose zone → generates QR + session.</td></tr>
                       <tr><td>13</td><td>POS</td><td><i className="bi bi-display"></i></td><td>5-tab payment terminal. Scan by plate, phone, QR, or webcam. Supports cash, Telebirr, CBE Birr, Chapa, SantimPay, bank, cards. Prints 80mm thermal receipt.</td></tr>
                       <tr><td>14</td><td>Reports</td><td><i className="bi bi-bar-chart"></i></td><td>Subscription report (printable) + Access log report (filterable, CSV export).</td></tr>
+                      <tr><td>15</td><td>RFID Cards</td><td><i className="bi bi-credit-card-2-front"></i></td><td>Register RFID cards, assign to members, manage card status (active/inactive/lost).</td></tr>
+                      <tr><td>16</td><td>Access Control</td><td><i className="bi bi-shield-check"></i></td><td>Live RFID card swipe monitoring via relay. Shows card, member, plan, remaining days. Open door button.</td></tr>
+                      <tr><td>17</td><td>QR Access</td><td><i className="bi bi-qr-code-scan"></i></td><td>Live QR code scan monitoring with built-in webcam scanner. Scans subscription QR codes, validates, opens door.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -612,7 +616,10 @@ Super Admin → Register Company → Issue License → Create Company Admin
                       <tr><td><code>parking_rates</code></td><td>Pricing rules</td><td>rate_type, base_rate, per_hour_rate</td></tr>
                       <tr><td><code>parking_qr_tickets</code></td><td>Visitor QR codes</td><td>ticket_number, visitor_name, valid_until, is_used</td></tr>
                       <tr><td><code>parking_payments</code></td><td>Payment transactions</td><td>session_id, amount, payment_method</td></tr>
-                      <tr><td><code>parking_subscriptions</code></td><td>Monthly/annual plans</td><td>customer_id, plan_type, start_date, end_date</td></tr>
+                      <tr><td><code>parking_subscriptions</code></td><td>Monthly/annual plans</td><td>customer_id, plan_type, start_date, end_date, qr_code, qr_image</td></tr>
+                      <tr><td><code>rfid_cards</code></td><td>RFID access cards</td><td>card_uid, member_id, label, status, last_used_at</td></tr>
+                      <tr><td><code>rfid_access_logs</code></td><td>Card/QR swipe log</td><td>card_uid, member_id, granted, reason, event_type, door_opened</td></tr>
+                      <tr><td><code>relay_commands</code></td><td>Door open commands</td><td>action (open_door), status (pending/done), payload</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -678,7 +685,248 @@ NEXT_PUBLIC_APP_URL=https://your-domain.com`}</pre>
                 </div>
               </Section>
 
-              <Section id="faq" title="15. Frequently Asked Questions">
+              <Section id="access-control" title="15. Access Control &amp; Local Relay Setup">
+                <p className="lead">Complete guide to setting up RFID card readers and QR code access control with the local relay process that connects the access controller hardware to the cloud app.</p>
+
+                <Note>This section covers installing the local relay on a Windows PC that sits on the same network as the access controller hardware (e.g. 192.168.0.68). The relay bridges the controller to the Vercel-hosted app.</Note>
+
+                <h6 className="fw-semibold mt-4">Architecture Overview</h6>
+                <div className="bg-light p-4 rounded-3 mb-4 small">
+                  <pre className="mb-0">{`┌──────────────────────┐     HTTP POST     ┌─────────────────────┐
+│  Access Controller   │ ◄─────────────── │   Local Relay       │
+│  192.168.0.68:80     │                   │   (Node.js + PM2)   │
+│  (RFID Card Reader)  │ ──GET Event.xml──►│                     │
+└──────────────────────┘                   │  • Polls controller  │
+                                           │  • Opens door       │
+                                           │  • Reads relay_cmds │
+                                           └─────────┬───────────┘
+                                                     │ Direct SQL
+                                                     ▼
+                                           ┌─────────────────────┐
+                                           │   Neon PostgreSQL   │
+                                           │   (Cloud Database)  │
+                                           └─────────┬───────────┘
+                                                     │ REST API
+                                                     ▼
+                                           ┌─────────────────────┐
+                                           │   Vercel App        │
+                                           │   (Next.js)         │
+                                           │  • QR Access page   │
+                                           │  • Access Control   │
+                                           │  • Webcam scanner   │
+                                           └─────────────────────┘`}</pre>
+                </div>
+
+                <h6 className="fw-semibold mt-4">How It Works</h6>
+                <ol>
+                  <li><strong>Card Swipe:</strong> Person taps RFID card on controller → controller logs event</li>
+                  <li><strong>Relay polls:</strong> Local relay fetches <code>/Event.xml?ID=0</code> every 1 second</li>
+                  <li><strong>Relay looks up card:</strong> Queries Neon DB for card → finds member → checks subscription</li>
+                  <li><strong>Access decision:</strong> If subscription is active → relay sends POST to <code>/cdor.cgi?open=1</code> → door opens</li>
+                  <li><strong>Log written:</strong> Relay inserts result into <code>rfid_access_logs</code> table</li>
+                  <li><strong>Dashboard shows:</strong> QR Access page polls <code>/api/parking/access/qr-live</code> → shows scan in real-time</li>
+                </ol>
+                <p>Same flow applies for QR scans — webcam on the QR Access page scans the QR, calls the <code>/api/parking/access/qr-lookup</code> API which validates and inserts a <code>relay_commands</code> entry. The local relay picks it up and opens the door.</p>
+
+                <h6 className="fw-semibold mt-4">Prerequisites</h6>
+                <div className="table-responsive">
+                  <table className="table table-sm table-bordered">
+                    <thead className="table-light">
+                      <tr><th>Requirement</th><th>Details</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>Windows PC</td><td>On the same network as the access controller (e.g. 192.168.0.x)</td></tr>
+                      <tr><td>Access Controller</td><td>Chinese door controller (e.g. 192.168.0.68), port 80, Basic Auth</td></tr>
+                      <tr><td>Node.js v18+</td><td>Runtime for the relay script</td></tr>
+                      <tr><td>Internet</td><td>PC must reach the Vercel app and Neon database</td></tr>
+                      <tr><td>Gate created</td><td>Create a gate in <strong>Gates</strong> page with the controller IP, port, and enable RFID/QR</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h6 className="fw-semibold mt-4">Step 1 — Install Node.js</h6>
+                <p>Download and install Node.js from <strong>https://nodejs.org</strong> (LTS version recommended). Verify installation:</p>
+                <pre className="bg-dark text-light p-3 rounded small">{`node --version
+# Should show v18.x.x or higher
+
+npm --version
+# Should show 9.x.x or higher`}</pre>
+
+                <h6 className="fw-semibold mt-4">Step 2 — Clone the Repository</h6>
+                <pre className="bg-dark text-light p-3 rounded small">{`# Open Command Prompt or PowerShell as Administrator
+cd C:\\
+git clone https://github.com/Rasneba/-geniouserp.git genius-hrms
+cd genius-hrms`}</pre>
+
+                <h6 className="fw-semibold mt-4">Step 3 — Install Dependencies</h6>
+                <pre className="bg-dark text-light p-3 rounded small">{`npm install`}</pre>
+                <p>This installs all packages including <code>pg</code> (PostgreSQL client) and <code>qrcode</code> (QR generation).</p>
+
+                <h6 className="fw-semibold mt-4">Step 4 — Configure the Relay</h6>
+                <p>Create a file called <code>.env.relay</code> in the project root with this content:</p>
+                <pre className="bg-dark text-light p-3 rounded small">{`{
+  "DATABASE_URL": "postgresql://neondb_owner:YOUR_PASSWORD@ep-XXXXX-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require",
+  "CONTROLLER_IP": "192.168.0.68",
+  "CONTROLLER_PORT": 80,
+  "CONTROLLER_USERNAME": "admin",
+  "CONTROLLER_PASSWORD": "888888",
+  "COMPANY_ID": 5
+}`}</pre>
+                <Note><strong>COMPANY_ID</strong> is the company that owns the gate. All access logs from this relay will be recorded under this company. Find your company ID from the Companies page.</Note>
+
+                <h6 className="fw-semibold mt-4">Step 5 — Create the Gate in the App</h6>
+                <ol>
+                  <li>Log in to the app → <strong>Parking</strong> → <strong>Gates</strong></li>
+                  <li>Click <strong>Add Gate</strong></li>
+                  <li>Fill in: Name, Code, Type (entry/exit/dual), Direction (in/out/both)</li>
+                  <li>Set <strong>IP Address</strong> = <code>192.168.0.68</code> (same as CONTROLLER_IP)</li>
+                  <li>Set <strong>Port</strong> = <code>80</code></li>
+                  <li>Enable: <strong>RFID</strong> ✅ and/or <strong>QR</strong> ✅</li>
+                  <li>Save</li>
+                </ol>
+
+                <h6 className="fw-semibold mt-4">Step 6 — Register RFID Cards</h6>
+                <ol>
+                  <li>Go to <strong>Parking</strong> → <strong>RFID Cards</strong></li>
+                  <li>Click <strong>Add Card</strong></li>
+                  <li>Enter the card UID (shown on the card or read by the controller)</li>
+                  <li>Assign to a <strong>Member</strong> (must have an active subscription)</li>
+                  <li>Set status to <strong>Active</strong></li>
+                  <li>Save</li>
+                </ol>
+                <p>Or cards are auto-registered when first swiped — the relay will log a "Card not registered" event.</p>
+
+                <h6 className="fw-semibold mt-4">Step 7 — Generate Subscription QR Codes</h6>
+                <ol>
+                  <li>Go to <strong>Parking</strong> → <strong>Subscriptions</strong></li>
+                  <li>Create a subscription for a customer (select plan, dates, amount)</li>
+                  <li>A QR code is auto-generated for each subscription</li>
+                  <li>Click the <strong>QR icon</strong> (purple) in the Actions column</li>
+                  <li>Click <strong>Download QR</strong> → print or send to the customer</li>
+                </ol>
+                <p>The QR code contains: <code>{'{"t":"sub","sid":123,"cid":5,"exp":"2026-12-31"}'}</code></p>
+
+                <h6 className="fw-semibold mt-4">Step 8 — Install PM2 (Process Manager)</h6>
+                <p>PM2 keeps the relay running 24/7 and auto-restarts on crash or reboot.</p>
+                <pre className="bg-dark text-light p-3 rounded small">{`# Install PM2 globally
+npm install -g pm2
+
+# Verify installation
+pm2 --version
+# Should show 5.x.x or higher`}</pre>
+
+                <h6 className="fw-semibold mt-4">Step 9 — Start the Relay with PM2</h6>
+                <pre className="bg-dark text-light p-3 rounded small">{`# From the project directory
+cd C:\\genius-hrms
+
+# Start the relay
+pm2 start scripts/local-relay.mjs --name genius-relay
+
+# Verify it's running
+pm2 list
+# Should show genius-relay with status "online"
+
+# Check logs
+pm2 logs genius-relay --lines 20`}</pre>
+                <p>You should see output like:</p>
+                <pre className="bg-dark text-light p-3 rounded small">{`  Database: connected
+  Controller: OK
+  GRANTED for John Doe (30d left)
+  CMD POST http://192.168.0.68:80/cdor.cgi?open=1 => 200
+  CHECKIN member_id=8`}</pre>
+
+                <h6 className="fw-semibold mt-4">Step 10 — Auto-Start on Windows Boot</h6>
+                <p>Create a batch file to auto-resurrect PM2 processes on Windows startup:</p>
+                <pre className="bg-dark text-light p-3 rounded small">{`# Create start-relay.bat in scripts folder
+@echo off
+cd /d C:\\genius-hrms
+pm2 resurrect
+pm2 save`}</pre>
+                <p>Then create a Windows Task Scheduler task:</p>
+                <ol>
+                  <li>Open <strong>Task Scheduler</strong> (search in Start menu)</li>
+                  <li>Click <strong>Create Basic Task</strong></li>
+                  <li>Name: <code>PM2 Auto-Start</code></li>
+                  <li>Trigger: <strong>When the computer starts</strong></li>
+                  <li>Action: <strong>Start a program</strong></li>
+                  <li>Program: <code>C:\\genius-hrms\\scripts\\start-relay.bat</code></li>
+                  <li>Finish. Check <strong>Run with highest privileges</strong> in Properties.</li>
+                </ol>
+
+                <h6 className="fw-semibold mt-4">Step 11 — Save PM2 Process List</h6>
+                <pre className="bg-dark text-light p-3 rounded small">{`# After starting relay, save the process list
+pm2 save
+
+# This creates a dump file that pm2 resurrect reads on boot`}</pre>
+
+                <h6 className="fw-semibold mt-4">Testing — Verify Everything Works</h6>
+                <div className="table-responsive">
+                  <table className="table table-sm table-bordered">
+                    <thead className="table-light">
+                      <tr><th>Test</th><th>How</th><th>Expected Result</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>Relay is running</td><td><code>pm2 list</code></td><td>genius-relay status = online</td></tr>
+                      <tr><td>Controller reachable</td><td>Open browser → <code>http://192.168.0.68</code></td><td>Controller web UI loads</td></tr>
+                      <tr><td>Card swipe (registered)</td><td>Tap RFID card on reader</td><td>Door opens, log shows "Access granted" with member name</td></tr>
+                      <tr><td>Card swipe (unregistered)</td><td>Tap unknown card</td><td>Door stays closed, log shows "Card not registered"</td></tr>
+                      <tr><td>QR scan (webcam)</td><td>QR Access page → Start → scan QR</td><td>Door opens, shows member name + plan</td></tr>
+                      <tr><td>QR scan (USB reader)</td><td>Present QR to USB reader on Desktop</td><td>Same as webcam scan</td></tr>
+                      <tr><td>Open Door button</td><td>Click "Open Door" on any access page</td><td>Door opens, log shows "Force Open"</td></tr>
+                      <tr><td>Dashboard live feed</td><td>Open QR Access or Access Control page</td><td>Events appear in real-time</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h6 className="fw-semibold mt-4">Troubleshooting</h6>
+                <div className="table-responsive">
+                  <table className="table table-sm table-bordered">
+                    <thead className="table-light">
+                      <tr><th>Problem</th><th>Check</th><th>Fix</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>Relay shows "offline" in app</td><td><code>pm2 logs genius-relay</code></td><td>Check .env.relay has correct DATABASE_URL and CONTROLLER_IP</td></tr>
+                      <tr><td>Card swipe not detected</td><td>Controller web UI → Events</td><td>Check controller is on same network, IP is correct</td></tr>
+                      <tr><td>Door doesn't open</td><td><code>pm2 logs</code> for "CMD POST"</td><td>Check controller username/password in .env.relay</td></tr>
+                      <tr><td>"Card not registered"</td><td>RFID Cards page</td><td>Register the card and assign to a member with active subscription</td></tr>
+                      <tr><td>"No active subscription"</td><td>Subscriptions page</td><td>Create or renew subscription for the member</td></tr>
+                      <tr><td>QR scan shows "Unknown"</td><td>Subscriptions page</td><td>Download QR from subscription page (must have qr_image)</td></tr>
+                      <tr><td>Multiple logs per scan</td><td>Relay dedup</td><td>Relay has 3s per-card cooldown — normal if swiping rapidly</td></tr>
+                      <tr><td>PM2 process died</td><td><code>pm2 list</code></td><td><code>pm2 restart genius-relay</code></td></tr>
+                      <tr><td>Windows reboot — relay not running</td><td>Task Scheduler</td><td>Verify PM2 auto-start task exists and <code>pm2 save</code> was run</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h6 className="fw-semibold mt-4">PM2 Common Commands</h6>
+                <pre className="bg-dark text-light p-3 rounded small">{`pm2 list                    # Show all running processes
+pm2 logs genius-relay       # View live logs
+pm2 logs genius-relay --lines 50  # Last 50 lines
+pm2 restart genius-relay    # Restart the relay
+pm2 stop genius-relay       # Stop the relay
+pm2 delete genius-relay     # Remove from PM2
+pm2 save                    # Save process list (for resurrect)
+pm2 resurrect               # Restore saved processes
+pm2 monit                   # Real-time monitoring dashboard`}</pre>
+
+                <h6 className="fw-semibold mt-4">Full Setup Checklist</h6>
+                <div className="bg-light p-4 rounded-3 small">
+                  <Step num={1} text="Install Node.js v18+ from nodejs.org" />
+                  <Step num={2} text="Clone repo: git clone https://github.com/Rasneba/-geniouserp.git" />
+                  <Step num={3} text="Install deps: npm install" />
+                  <Step num={4} text="Create .env.relay with DATABASE_URL, CONTROLLER_IP, credentials, COMPANY_ID" />
+                  <Step num={5} text="In app: create Gate with controller IP + enable RFID/QR" />
+                  <Step num={6} text="In app: register RFID cards → assign to members" />
+                  <Step num={7} text="In app: create subscriptions → download QR codes" />
+                  <Step num={8} text="Install PM2: npm install -g pm2" />
+                  <Step num={9} text="Start relay: pm2 start scripts/local-relay.mjs --name genius-relay" />
+                  <Step num={10} text="Save: pm2 save" />
+                  <Step num={11} text="Create start-relay.bat + Task Scheduler for auto-start on boot" />
+                  <Step num={12} text="Test: swipe card → door opens → check QR Access page for live log" />
+                </div>
+              </Section>
+
+              <Section id="faq" title="16. Frequently Asked Questions">
                 <div className="accordion" id="faqAccordion">
                   {[
                     {

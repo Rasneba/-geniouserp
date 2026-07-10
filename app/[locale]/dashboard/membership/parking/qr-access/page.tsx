@@ -139,22 +139,16 @@ export default function QRAccessPage() {
     try { parsed = JSON.parse(rawText); } catch { return; }
     if (!parsed || parsed.t !== "sub" || !parsed.sid) return;
 
-    const lookup = await lookupQr(parsed);
-    const time = new Date().toLocaleString();
+    const lookup = await lookupQr({ subscription_id: parsed.sid, company_id: parsed.cid });
     const granted = lookup?.granted || false;
     const name = lookup?.member?.name || null;
     const plan = lookup?.subscription?.plan_name || null;
     const days = lookup?.days_remaining ?? 0;
 
-    const newActivity: any = {
-      id: Date.now(), card: `QR-${parsed.sid}`, name, direction: "IN",
-      note: lookup?.message || lookup?.reason || "Unknown", time, granted,
-      days_remaining: days, plan_name: plan, member_id: lookup?.member?.id,
-      reason: lookup?.reason, subscription_id: parsed.sid,
-    };
-
-    setActivities(prev => [newActivity, ...prev].slice(0, 200));
-    setLastScanResult({ ...newActivity, plan, days });
+    setLastScanResult({
+      id: Date.now(), card: `QR-${parsed.sid}`, name, granted,
+      plan, days, note: lookup?.message || lookup?.reason || "Unknown",
+    });
     setTimeout(() => setLastScanResult(null), 8000);
   }, []);
 
