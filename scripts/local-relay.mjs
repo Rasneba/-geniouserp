@@ -69,6 +69,27 @@ async function logAccess(cardUid, memberId, memberName, granted, reason, message
   );
 }
 
+async function toggleCheckin(memberId, cardUid) {
+  if (!memberId) return;
+  const existing = await query(
+    `SELECT id FROM gym_checkins WHERE member_id = $1 AND status = 'checked_in' AND company_id = 1 LIMIT 1`,
+    [memberId]
+  );
+  if (existing && existing.length > 0) {
+    await query(
+      `UPDATE gym_checkins SET status = 'checked_out', check_out_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [existing[0].id]
+    );
+    console.log(`  CHECKOUT member_id=${memberId}`);
+  } else {
+    await query(
+      `INSERT INTO gym_checkins (company_id, member_id, card_uid, status, source) VALUES (1,$1,$2,'checked_in','rfid')`,
+      [memberId, cardUid]
+    );
+    console.log(`  CHECKIN member_id=${memberId}`);
+  }
+}
+
 async function lookupCard(cardUid) {
   const rows = await query(
     `SELECT rc.id, rc.member_id, rc.card_uid, rc.label, rc.status,
@@ -161,6 +182,7 @@ async function pollEvents() {
     if (lookup.granted) {
       console.log(`  GRANTED for ${lookup.member?.name || cardUid} (${lookup.days_remaining}d left)`);
       await openDoor();
+      await toggleCheckin(lookup.member?.id, cardUid);
     } else {
       console.log(`  DENIED: ${lookup.reason} — ${lookup.message}`);
     }
