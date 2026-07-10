@@ -63,7 +63,7 @@ async function openDoor() {
 }
 
 async function logAccess(cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened, extra = {}) {
-  const cid = extra.company_id || 1;
+  const cid = extra.company_id || CFG.COMPANY_ID || 1;
   await query(
     `INSERT INTO rfid_access_logs (company_id, card_uid, member_id, member_name, granted, reason, message, days_remaining, door_opened, direction, event_type, plan_name, subscription_id)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
@@ -74,7 +74,7 @@ async function logAccess(cardUid, memberId, memberName, granted, reason, message
 
 async function toggleCheckin(memberId, cardUid, companyId) {
   if (!memberId) return;
-  const cid = companyId || 1;
+  const cid = companyId || CFG.COMPANY_ID || 1;
   const existing = await query(
     `SELECT id FROM gym_checkins WHERE member_id = $1 AND status = 'checked_in' AND company_id = $2 LIMIT 1`,
     [memberId, cid]
@@ -104,12 +104,12 @@ async function lookupCard(cardUid) {
     [cardUid]
   );
   if (!rows || rows.length === 0) {
-    await logAccess(cardUid, null, null, false, "CARD_NOT_FOUND", "RFID card not found in system", 0, false, { company_id: 1 });
+    await logAccess(cardUid, null, null, false, "CARD_NOT_FOUND", "RFID card not found in system", 0, false, { company_id: CFG.COMPANY_ID || 1 });
     return { granted: false, reason: "CARD_NOT_FOUND", message: "RFID card not found in system" };
   }
 
   const card = rows[0];
-  const cid = card.company_id || card.member_company_id || 1;
+  const cid = CFG.COMPANY_ID || card.company_id || card.member_company_id || 1;
 
   if (!card.member_id) {
     await logAccess(cardUid, null, null, false, "CARD_NOT_ISSUED", "Card not issued to any member", 0, false, { company_id: cid });
@@ -162,7 +162,7 @@ async function pollTasks() {
     console.log(`  TASK #${task.id}: ${task.action}`);
     if (task.action === "open_door") {
       await openDoor();
-      const cid = task.company_id || 1;
+      const cid = task.company_id || CFG.COMPANY_ID || 1;
       await logAccess("BUTTON", null, null, true, "REMOTE_OPEN", "Door opened via button", 0, true, {
         company_id: cid, direction: "IN", event_type: "REMOTE_OPEN"
       });
@@ -204,6 +204,7 @@ console.log("  Genius HRMS — Offline Access Relay");
 console.log("═".repeat(50));
 console.log(`  DB:        ${CFG.DATABASE_URL.replace(/\/\/.*@/, "//user:pass@")}`);
 console.log(`  Controller: ${CONTROLLER}`);
+console.log(`  Company ID: ${CFG.COMPANY_ID || "not set"}`);
 console.log("═".repeat(50));
 
 console.log("  Testing controller...");

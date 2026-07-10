@@ -258,8 +258,8 @@ export default function AccessControlPage() {
                 </thead>
                 <tbody>
                   {visibleActivities.map((a, i) => {
-                    const eventText = a.granted
-                      ? (a.event_type === "REMOTE_OPEN" ? "Door opened (button)" : "Access granted")
+                    const eventText = a.event_type === "REMOTE_OPEN" ? "Force Open"
+                      : a.granted ? "Access granted"
                       : a.reason === "CARD_NOT_FOUND" ? "Card not registered"
                       : a.reason === "CARD_NOT_ISSUED" ? "Card not issued"
                       : a.reason === "NO_ACTIVE_SUBSCRIPTION" ? "No active subscription"
