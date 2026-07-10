@@ -46,12 +46,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   const { course_name, institution, start_date, end_date, duration_days, certificate, status, notes } = await req.json();
+  const clean = (v: any) => (v === "" || v === undefined ? null : v);
 
   try {
     const result = await pool.query(
       `UPDATE employee_training SET course_name = $1, institution = $2, start_date = $3, end_date = $4,
        duration_days = $5, certificate = $6, status = $7, notes = $8 WHERE id = $9 AND employee_id = $10 RETURNING *`,
-      [course_name, institution || null, start_date || null, end_date || null, duration_days || null, certificate || null, status, notes || null, trainingId, id]
+      [course_name, clean(institution), clean(start_date), clean(end_date), clean(duration_days), clean(certificate), status, clean(notes), trainingId, id]
     );
 
     if (result.rows.length === 0) {

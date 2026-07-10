@@ -41,12 +41,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { course_name, institution, start_date, end_date, duration_days, certificate, status, notes } = await req.json();
+  const clean = (v: any) => (v === "" || v === undefined ? null : v);
 
   try {
     const result = await pool.query(
       `INSERT INTO employee_training (employee_id, course_name, institution, start_date, end_date, duration_days, certificate, status, notes)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [id, course_name, institution || null, start_date || null, end_date || null, duration_days || null, certificate || null, status || "completed", notes || null]
+      [id, course_name, clean(institution), clean(start_date), clean(end_date), clean(duration_days), clean(certificate), status || "completed", clean(notes)]
     );
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (err: any) {

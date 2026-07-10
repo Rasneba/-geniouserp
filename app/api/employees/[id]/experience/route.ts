@@ -41,12 +41,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { company, position, start_date, end_date, reason_leaving } = await req.json();
+  const clean = (v: any) => (v === "" || v === undefined ? null : v);
 
   try {
     const result = await pool.query(
       `INSERT INTO employee_work_experience (employee_id, company, position, start_date, end_date, reason_leaving)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [id, company, position, start_date, end_date, reason_leaving]
+      [id, company, position, clean(start_date), clean(end_date), clean(reason_leaving)]
     );
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (err: any) {

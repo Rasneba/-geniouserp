@@ -59,10 +59,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const values: any[] = [];
     let idx = 1;
 
+    const clean = (v: any) => (v === "" || v === undefined ? null : v);
+
     for (const field of ALLOWED_FIELDS) {
       if (body[field] !== undefined) {
         fields.push(`${field} = $${idx}`);
-        values.push(body[field]);
+        values.push(clean(body[field]));
         idx++;
       }
     }

@@ -8,13 +8,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id, expId } = await params;
   const { company, position, start_date, end_date, reason_leaving } = await req.json();
+  const clean = (v: any) => (v === "" || v === undefined ? null : v);
 
   try {
     const result = await pool.query(
       `UPDATE employee_work_experience SET company = $1, position = $2,
        start_date = $3, end_date = $4, reason_leaving = $5
        WHERE id = $6 AND employee_id = $7 RETURNING *`,
-      [company, position, start_date, end_date, reason_leaving, expId, id]
+      [company, position, clean(start_date), clean(end_date), clean(reason_leaving), expId, id]
     );
 
     if (result.rows.length === 0) {

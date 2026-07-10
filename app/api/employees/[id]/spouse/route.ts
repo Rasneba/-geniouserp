@@ -43,12 +43,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { full_name, date_of_birth, phone, occupation, employer, national_id, is_dependent } = await req.json();
+  const clean = (v: any) => (v === "" || v === undefined ? null : v);
 
   try {
     const result = await pool.query(
       `INSERT INTO employee_spouse (employee_id, full_name, date_of_birth, phone, occupation, employer, national_id, is_dependent)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [id, full_name, date_of_birth || null, phone || null, occupation || null, employer || null, national_id || null, is_dependent ?? false]
+      [id, full_name, clean(date_of_birth), clean(phone), clean(occupation), clean(employer), clean(national_id), is_dependent ?? false]
     );
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (err: any) {

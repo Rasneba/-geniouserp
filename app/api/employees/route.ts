@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         emergency_contact, emergency_phone, hire_date, salary, photo,
       } = body;
 
+      const clean = (v: any) => (v === "" || v === undefined ? null : v);
       const code = body.code || await generateSequentialId("employees", "code", "EMP");
 
       const result = await pool.query(
@@ -64,11 +65,11 @@ export async function POST(req: Request) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
          RETURNING *`,
         [
-          code, title, first_name, middle_name, last_name,
-          nationality, gender, marital_status, date_of_birth,
-          tin, biold, passport_id, national_id, category_id || 1,
-          department_id, position_id, phone, email, address,
-          emergency_contact, emergency_phone, hire_date, salary, photo || null,
+          code, clean(title), first_name, middle_name, last_name,
+          clean(nationality), clean(gender), clean(marital_status), clean(date_of_birth),
+          clean(tin), clean(biold), clean(passport_id), clean(national_id), category_id || 1,
+          clean(department_id), clean(position_id), clean(phone), clean(email), clean(address),
+          clean(emergency_contact), clean(emergency_phone), clean(hire_date), clean(salary), clean(photo),
           user.company_id,
         ]
       );
