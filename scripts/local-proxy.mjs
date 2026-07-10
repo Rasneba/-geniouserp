@@ -315,8 +315,8 @@ checkController();
   // Proxy to controller
   let targetPath = "";
   if (url.pathname === "/ping") targetPath = "/index.htm";
-  else if (url.pathname === "/event") targetPath = "/GEvent.xml?ID=" + (url.searchParams.get("ID") || "0");
-  else if (url.pathname === "/open-door") targetPath = "/cdor.cgi?open=1&door=0";
+  else if (url.pathname === "/event") targetPath = "/Event.xml?ID=" + (url.searchParams.get("ID") || "0");
+  else if (url.pathname === "/open-door") targetPath = "/cdor.cgi?open=1";
   else {
     res.writeHead(404);
     return res.end("Not found");

@@ -59,7 +59,7 @@ function controllerCmd(path) {
 }
 
 async function openDoor() {
-  controllerCmd("/cdor.cgi?open=1&door=0");
+  controllerCmd("/cdor.cgi?open=1");
 }
 
 async function logAccess(cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened, extra = {}) {

@@ -33,7 +33,7 @@ async function fetchEventXml() {
 
 async function openDoorOnController() {
   try {
-    const url = `http://${CONTROLLER_IP}:${CONTROLLER_PORT}/cdor.cgi?open=1&door=0`;
+    const url = `http://${CONTROLLER_IP}:${CONTROLLER_PORT}/cdor.cgi?open=1`;
     await fetch(url, { signal: AbortSignal.timeout(2000) });
     console.log(`  => Door OPENED`);
   } catch (err) {
