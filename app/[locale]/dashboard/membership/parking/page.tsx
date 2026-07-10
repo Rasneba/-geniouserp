@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GemPage, GemHeader, GemCard, GemCardBare, GemKpi, GemBtn, GemBtnOutline, GemTable, GemBadge } from "@/lib/gem-ui";
-import { Car, Timer, ArrowRightCircle, CashStack, UserCheck, CalendarCheck, Map, LayoutGrid, DoorOpen, Camera, Users, Truck, CreditCard, Clock, DollarSign, QrCode, Monitor, BarChart } from "lucide-react";
+import { Car, Timer, ArrowRightCircle, Banknote, UserCheck, CalendarCheck, Map, LayoutGrid, DoorOpen, Camera, Users, Truck, CreditCard, Clock, DollarSign, QrCode, Monitor, BarChart } from "lucide-react";
 
 export default function ParkingDashboard() {
   const [stats, setStats] = useState<any>(null);

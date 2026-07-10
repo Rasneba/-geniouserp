@@ -71,7 +71,8 @@ export async function DELETE(req: Request) {
     if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 });
 
     const isSuper = user.role === "super_admin";
-    const id = req.nextUrl.searchParams.get("id");
+    const url = new URL(req.url);
+    const id = url.searchParams.get("id");
     if (!id) return err("Missing id", 400);
 
     try {

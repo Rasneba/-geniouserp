@@ -344,7 +344,7 @@ export default function ParkingSubscriptionsPage() {
               </div>
               <div className="md:col-span-2">
                 <label className="text-sm text-gray-500 font-medium mb-1.5 block">Notes</label>
-                <input className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10" rows={2} value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} />
+                <textarea className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10" rows={2} value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} />
               </div>
             </div>
             <div className="mt-5">
@@ -378,7 +378,8 @@ export default function ParkingSubscriptionsPage() {
           </div>
         </div>
       ) : (
-        <GemCardBare ref={printRef}>
+        <div ref={printRef}>
+        <GemCardBare>
         {loading ? (
           <div className="text-center py-12">
             <div className="w-6 h-6 border-2 border-gray-300 border-t-black rounded-full animate-spin mx-auto"></div>
@@ -464,6 +465,7 @@ export default function ParkingSubscriptionsPage() {
           </div>
         )}
       </GemCardBare>
+      </div>
       )}
     </GemPage>
   );

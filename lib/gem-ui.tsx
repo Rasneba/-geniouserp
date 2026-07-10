@@ -154,7 +154,7 @@ export function GemInput({ className = "", ...props }: React.ComponentProps<"inp
   );
 }
 
-export function GemSelect({ children, className = "", ...props }: any) {
+export function GemSelect({ children, className = "", ...props }: React.ComponentProps<"select"> & { className?: string }) {
   return (
     <select
       className={`w-full rounded-xl px-4 py-2.5 text-sm transition-all focus:outline-none focus:ring-2 ${className}`}
@@ -178,7 +178,7 @@ export function GemPage({ children }: { children: ReactNode }) {
   );
 }
 
-export function GemAlert({ children, type = "success", onClose }: { children: ReactNode; type?: "success" | "danger" | "warning" | "info"; onClose?: () => void }) {
+export function GemAlert({ children, type = "success", onClose, className = "" }: { children: ReactNode; type?: "success" | "danger" | "warning" | "info"; onClose?: () => void; className?: string }) {
   const colorMap: Record<string, { bg: string; text: string; border: string }> = {
     success: { bg: "rgba(34, 197, 94, 0.08)", text: "#22c55e", border: "rgba(34, 197, 94, 0.2)" },
     danger: { bg: "rgba(239, 68, 68, 0.08)", text: "#ef4444", border: "rgba(239, 68, 68, 0.2)" },
@@ -188,7 +188,7 @@ export function GemAlert({ children, type = "success", onClose }: { children: Re
   const c = colorMap[type] || colorMap.success;
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 rounded-xl border mb-6 text-sm font-medium"
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl border mb-6 text-sm font-medium ${className}`}
       style={{ background: c.bg, color: c.text, borderColor: c.border }}
     >
       <div className="flex-1">{children}</div>
