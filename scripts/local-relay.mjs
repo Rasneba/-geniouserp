@@ -30,7 +30,8 @@ const CONTROLLER_AUTH = Buffer.from(`${CFG.CONTROLLER_USERNAME}:${CFG.CONTROLLER
 const CONTROLLER_HEADERS = { Authorization: `Basic ${CONTROLLER_AUTH}` };
 const FETCH_OPTS = { headers: CONTROLLER_HEADERS, signal: AbortSignal.timeout(3000) };
 
-let lastEventId = "0";
+let lastEventTime = "";
+let lastEventCard = "";
 
 async function query(sql, params = []) {
   try {
@@ -62,19 +63,21 @@ async function openDoor() {
 }
 
 async function logAccess(cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened, extra = {}) {
+  const cid = extra.company_id || 1;
   await query(
     `INSERT INTO rfid_access_logs (company_id, card_uid, member_id, member_name, granted, reason, message, days_remaining, door_opened, direction, event_type, plan_name, subscription_id)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-    [1, cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened,
+    [cid, cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened,
      extra.direction || "IN", extra.event_type || "SWIPE", extra.plan_name || null, extra.subscription_id || null]
   );
 }
 
-async function toggleCheckin(memberId, cardUid) {
+async function toggleCheckin(memberId, cardUid, companyId) {
   if (!memberId) return;
+  const cid = companyId || 1;
   const existing = await query(
-    `SELECT id FROM gym_checkins WHERE member_id = $1 AND status = 'checked_in' AND company_id = 1 LIMIT 1`,
-    [memberId]
+    `SELECT id FROM gym_checkins WHERE member_id = $1 AND status = 'checked_in' AND company_id = $2 LIMIT 1`,
+    [memberId, cid]
   );
   if (existing && existing.length > 0) {
     await query(
@@ -84,8 +87,8 @@ async function toggleCheckin(memberId, cardUid) {
     console.log(`  CHECKOUT member_id=${memberId}`);
   } else {
     await query(
-      `INSERT INTO gym_checkins (company_id, member_id, card_uid, status, source) VALUES (1,$1,$2,'checked_in','rfid')`,
-      [memberId, cardUid]
+      `INSERT INTO gym_checkins (company_id, member_id, card_uid, status, source) VALUES ($1,$2,$3,'checked_in','rfid')`,
+      [cid, memberId, cardUid]
     );
     console.log(`  CHECKIN member_id=${memberId}`);
   }
@@ -93,33 +96,29 @@ async function toggleCheckin(memberId, cardUid) {
 
 async function lookupCard(cardUid) {
   const rows = await query(
-    `SELECT rc.id, rc.member_id, rc.card_uid, rc.label, rc.status,
-            mm.full_name AS member_name, mm.customer_id AS member_code
+    `SELECT rc.id, rc.member_id, rc.card_uid, rc.label, rc.status, rc.company_id,
+            mm.full_name AS member_name, mm.customer_id AS member_code, mm.company_id AS member_company_id
      FROM rfid_cards rc
      LEFT JOIN membership_members mm ON rc.member_id = mm.id
-     WHERE rc.card_uid = $1 AND rc.company_id = 1`,
+     WHERE rc.card_uid = $1 AND rc.status = 'active'`,
     [cardUid]
   );
   if (!rows || rows.length === 0) {
-    await logAccess(cardUid, null, null, false, "CARD_NOT_FOUND", "RFID card not found in system", 0, false);
+    await logAccess(cardUid, null, null, false, "CARD_NOT_FOUND", "RFID card not found in system", 0, false, { company_id: 1 });
     return { granted: false, reason: "CARD_NOT_FOUND", message: "RFID card not found in system" };
   }
 
   const card = rows[0];
-
-  if (card.status !== "active") {
-    await logAccess(cardUid, card.member_id, card.member_name, false, "CARD_INACTIVE", `Card is ${card.status}`, 0, false);
-    return { granted: false, reason: "CARD_INACTIVE", message: `Card is ${card.status}` };
-  }
+  const cid = card.company_id || card.member_company_id || 1;
 
   if (!card.member_id) {
-    await logAccess(cardUid, null, null, false, "NO_MEMBER", "Card is not assigned to any member", 0, false);
+    await logAccess(cardUid, null, null, false, "NO_MEMBER", "Card is not assigned to any member", 0, false, { company_id: cid });
     return { granted: false, reason: "NO_MEMBER", message: "Card is not assigned to any member" };
   }
 
   const today = new Date().toISOString().split("T")[0];
   const subs = await query(
-    `SELECT ps.id, ps.end_date, mp.name AS plan_name
+    `SELECT ps.id, ps.end_date, ps.plan_type, mp.name AS plan_name
      FROM parking_subscriptions ps
      LEFT JOIN membership_plans mp ON ps.plan_id = mp.id
      WHERE ps.customer_id = $1 AND ps.status IN ('active','pending') AND ps.start_date <= $2 AND ps.end_date >= $2
@@ -128,7 +127,7 @@ async function lookupCard(cardUid) {
   );
 
   if (!subs || subs.length === 0) {
-    await logAccess(cardUid, card.member_id, card.member_name, false, "NO_ACTIVE_SUBSCRIPTION", "No active subscription covering today", 0, false);
+    await logAccess(cardUid, card.member_id, card.member_name, false, "NO_ACTIVE_SUBSCRIPTION", "No active subscription covering today", 0, false, { company_id: cid });
     return { granted: false, reason: "NO_ACTIVE_SUBSCRIPTION", message: "No active subscription covering today", days_remaining: 0 };
   }
 
@@ -137,7 +136,7 @@ async function lookupCard(cardUid) {
 
   await query("UPDATE rfid_cards SET last_used_at = CURRENT_TIMESTAMP WHERE id = $1", [card.id]);
   await logAccess(cardUid, card.member_id, card.member_name, true, "ACCESS_GRANTED", "Access granted", daysRemaining, true,
-    { plan_name: sub.plan_name || null, subscription_id: sub.id, direction: "IN" });
+    { company_id: cid, plan_name: sub.plan_name || null, subscription_id: sub.id, direction: "IN" });
 
   return {
     granted: true,
@@ -145,6 +144,7 @@ async function lookupCard(cardUid) {
     message: "Access granted",
     member: { id: card.member_id, name: card.member_name },
     days_remaining: daysRemaining,
+    company_id: cid,
   };
 }
 
@@ -153,7 +153,7 @@ async function pollTasks() {
     `UPDATE relay_commands SET status = 'running', updated_at = CURRENT_TIMESTAMP
      WHERE id = (
        SELECT id FROM relay_commands
-       WHERE company_id = 1 AND status = 'pending'
+       WHERE status = 'pending'
        ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED
      ) RETURNING *`
   );
@@ -170,23 +170,24 @@ async function pollTasks() {
 }
 
 async function pollEvents() {
-  let raw = await controllerFetch(`/Event.xml?ID=${lastEventId}`);
+  let raw = await controllerFetch(`/Event.xml?ID=0`);
   if (!raw) return;
   raw = raw.replace(/>\s+</g, "><").replace(/\s+/g, " ");
   const m = raw.match(/<response>(.*?)<\/response>/);
   if (!m) return;
   try {
     const ev = JSON.parse(m[1]);
-    if (!ev.ID || ev.ID === lastEventId) return;
-    lastEventId = ev.ID;
+    if (!ev.Card) return;
+    const evKey = `${ev.Card}@${ev.Time}`;
+    if (evKey === lastEventCard) return;
+    lastEventCard = evKey;
     const cardUid = ev.Card;
-    if (!cardUid) return;
-    console.log(`  SWIPE card=${cardUid} time=${ev.Time}`);
+    console.log(`  SWIPE card=${cardUid} time=${ev.Time} reader=${ev.Reader || "?"}`);
     const lookup = await lookupCard(cardUid);
     if (lookup.granted) {
       console.log(`  GRANTED for ${lookup.member?.name || cardUid} (${lookup.days_remaining}d left)`);
       await openDoor();
-      await toggleCheckin(lookup.member?.id, cardUid);
+      await toggleCheckin(lookup.member?.id, cardUid, lookup.company_id);
     } else {
       console.log(`  DENIED: ${lookup.reason} — ${lookup.message}`);
     }
