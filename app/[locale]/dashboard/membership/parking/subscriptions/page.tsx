@@ -545,42 +545,51 @@ export default function ParkingSubscriptionsPage() {
         </div>
       )}
       {freezeModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setFreezeModal(null)}>
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold flex items-center gap-2"><Snowflake size={18} className="text-blue-500" /> Freeze Subscription</h3>
-              <button onClick={() => setFreezeModal(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-            </div>
-            <div className="mb-4 p-3 bg-blue-50 rounded-xl text-sm text-blue-800">
+        <GemCard className="mb-6">
+          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+            <Snowflake size={18} className="text-blue-500" />
+            Freeze Subscription
+            <button
+              type="button"
+              onClick={() => { setFreezeModal(null); setFreezeStart(""); setFreezeEnd(""); }}
+              className="ml-auto text-xs text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <X size={14} /> Cancel
+            </button>
+          </h3>
+          <div className="mb-4 p-3 bg-blue-50 rounded-xl text-sm text-blue-800 flex items-center gap-3">
+            <div>
               <p className="font-semibold">{freezeModal.sub?.customer_name}</p>
-              <p className="text-xs text-blue-600 mt-1">Sub #{freezeModal.sub?.id} &middot; {freezeModal.sub?.plan_name || freezeModal.sub?.plan_type}</p>
-              <p className="text-xs text-blue-500 mt-1">Ends: {new Date(freezeModal.sub?.end_date).toLocaleDateString()}</p>
+              <p className="text-xs text-blue-600 mt-0.5">Sub #{freezeModal.sub?.id} &middot; {freezeModal.sub?.plan_name || freezeModal.sub?.plan_type} &middot; Ends: {new Date(freezeModal.sub?.end_date).toLocaleDateString()}</p>
             </div>
-            <p className="text-sm text-gray-600 mb-4">During the freeze period the door will not open. After unfreezing, the end date will be extended by the freeze duration.</p>
-            <div className="space-y-3">
+          </div>
+          <p className="text-sm text-gray-500 mb-4">During the freeze period the door will not open. After unfreezing, the end date will be extended by the freeze duration.</p>
+          <form onSubmit={e => { e.preventDefault(); confirmFreeze(); }}>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="text-sm text-gray-500 font-medium mb-1 block">Freeze Start Date</label>
-                <GemInput type="date" value={freezeStart} onChange={e => setFreezeStart(e.target.value)} />
+                <label className="text-sm text-gray-500 font-medium mb-1.5 block">Freeze Start Date <span className="text-red-500">*</span></label>
+                <GemInput type="date" required value={freezeStart} onChange={e => setFreezeStart(e.target.value)} />
               </div>
               <div>
-                <label className="text-sm text-gray-500 font-medium mb-1 block">Freeze End Date</label>
-                <GemInput type="date" value={freezeEnd} onChange={e => setFreezeEnd(e.target.value)} />
+                <label className="text-sm text-gray-500 font-medium mb-1.5 block">Freeze End Date <span className="text-red-500">*</span></label>
+                <GemInput type="date" required value={freezeEnd} onChange={e => setFreezeEnd(e.target.value)} />
               </div>
               {freezeStart && freezeEnd && new Date(freezeEnd) >= new Date(freezeStart) && (
-                <div className="p-2 bg-amber-50 rounded-lg text-xs text-amber-700">
-                  Duration: {Math.ceil((new Date(freezeEnd).getTime() - new Date(freezeStart).getTime()) / (1000 * 60 * 60 * 24))} days &middot; End date will be extended by this amount
+                <div className="flex items-end">
+                  <div className="p-2.5 bg-amber-50 rounded-xl text-xs text-amber-700 w-full">
+                    Duration: {Math.ceil((new Date(freezeEnd).getTime() - new Date(freezeStart).getTime()) / (1000 * 60 * 60 * 24))} days &middot; End date will be extended by this amount
+                  </div>
                 </div>
               )}
             </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <GemBtnOutline onClick={() => setFreezeModal(null)}>Cancel</GemBtnOutline>
-              <GemBtn onClick={confirmFreeze} disabled={!freezeStart || !freezeEnd || freezing === freezeModal.id}>
+            <div className="mt-5">
+              <GemBtn type="submit" disabled={!freezeStart || !freezeEnd || freezing === freezeModal.id}>
                 <Snowflake size={15} />
                 {freezing === freezeModal.id ? "Freezing..." : "Confirm Freeze"}
               </GemBtn>
             </div>
-          </div>
-        </div>
+          </form>
+        </GemCard>
       )}
     </GemPage>
   );
