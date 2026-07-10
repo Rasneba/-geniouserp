@@ -28,7 +28,7 @@ const pool = new pg.Pool({ connectionString: CFG.DATABASE_URL });
 const CONTROLLER = `http://${CFG.CONTROLLER_IP}:${CFG.CONTROLLER_PORT}`;
 const CONTROLLER_AUTH = Buffer.from(`${CFG.CONTROLLER_USERNAME}:${CFG.CONTROLLER_PASSWORD}`).toString("base64");
 const CONTROLLER_HEADERS = { Authorization: `Basic ${CONTROLLER_AUTH}` };
-const FETCH_OPTS = { headers: CONTROLLER_HEADERS, signal: AbortSignal.timeout(3000) };
+const FETCH_OPTS = { headers: CONTROLLER_HEADERS };
 
 let lastEventTime = "";
 let lastEventCard = "";
