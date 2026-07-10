@@ -178,11 +178,12 @@ export function GemPage({ children }: { children: ReactNode }) {
   );
 }
 
-export function GemAlert({ children, type = "success", onClose }: { children: ReactNode; type?: "success" | "danger" | "warning"; onClose?: () => void }) {
+export function GemAlert({ children, type = "success", onClose }: { children: ReactNode; type?: "success" | "danger" | "warning" | "info"; onClose?: () => void }) {
   const colorMap: Record<string, { bg: string; text: string; border: string }> = {
     success: { bg: "rgba(34, 197, 94, 0.08)", text: "#22c55e", border: "rgba(34, 197, 94, 0.2)" },
     danger: { bg: "rgba(239, 68, 68, 0.08)", text: "#ef4444", border: "rgba(239, 68, 68, 0.2)" },
     warning: { bg: "rgba(245, 158, 11, 0.08)", text: "#f59e0b", border: "rgba(245, 158, 11, 0.2)" },
+    info: { bg: "rgba(59, 130, 246, 0.08)", text: "#3b82f6", border: "rgba(59, 130, 246, 0.2)" },
   };
   const c = colorMap[type] || colorMap.success;
   return (
