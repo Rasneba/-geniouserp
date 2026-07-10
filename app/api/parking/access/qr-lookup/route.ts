@@ -39,8 +39,8 @@ export async function POST(req: Request) {
       const recentScan = await pool.query(
         `SELECT id FROM rfid_access_logs
          WHERE subscription_id = $1 AND event_type = 'QR_SCAN' AND granted = true
-         AND time > NOW() - INTERVAL '5 seconds'
-         ORDER BY time DESC LIMIT 1`,
+         AND created_at > NOW() - INTERVAL '5 seconds'
+         ORDER BY created_at DESC LIMIT 1`,
         [sub.id]
       );
       if (recentScan.rows.length > 0) {
