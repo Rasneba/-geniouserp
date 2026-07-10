@@ -75,26 +75,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
-    if (body.status === undefined && body.end_date === undefined) {
-      const statusCheck = await pool.query("SELECT status FROM parking_subscriptions WHERE id = $1", [id]);
-      if (statusCheck.rows[0]?.status === "active" && updated.freeze_start && updated.freeze_end) {
-        const freezeStart = new Date(updated.freeze_start);
-        const freezeEnd = new Date(updated.freeze_end);
-        const freezeDays = Math.ceil((freezeEnd.getTime() - freezeStart.getTime()) / (1000 * 60 * 60 * 24));
-        if (freezeDays > 0) {
-          const currentEnd = new Date(updated.end_date);
-          currentEnd.setDate(currentEnd.getDate() + freezeDays);
-          const newEnd = currentEnd.toISOString().split("T")[0];
-          await pool.query(
-            "UPDATE parking_subscriptions SET end_date = $1, freeze_start = NULL, freeze_end = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-            [newEnd, id]
-          );
-          const refetch = await pool.query("SELECT * FROM parking_subscriptions WHERE id = $1", [id]);
-          updated = refetch.rows[0];
-        }
-      }
-    }
-
     if (body.status !== undefined || body.end_date !== undefined) {
       const qrData = JSON.stringify({ t: "sub", sid: updated.id, cid: updated.company_id, exp: updated.end_date });
       const qrImage = await QRCode.toDataURL(qrData, { width: 300, margin: 2 });
