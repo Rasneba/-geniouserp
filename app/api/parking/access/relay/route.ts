@@ -1,35 +1,43 @@
 import { NextResponse } from "next/server";
-
-const IP = "192.168.0.68";
-const USER = "admin";
-const PASSWORD = "888888";
+import pool from "@/lib/db";
+import { withAuth, ok } from "@/lib/api-utils";
 
 export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    let url = "";
+  return withAuth(req, async (user) => {
+    try {
+      const body = await req.json();
+      const action = body.action || "open";
 
-    if (body.action === "open") {
-      url = `http://${IP}/cdor.cgi?open=1&door=0`;
+      const result = await pool.query(
+        `INSERT INTO relay_commands (company_id, action, payload, status)
+         VALUES ($1, $2, $3, 'pending') RETURNING id`,
+        [user.company_id, action === "open" ? "open_door" : action, JSON.stringify(body)]
+      );
+
+      return ok({ success: true, command_id: result.rows[0].id });
+    } catch (e: any) {
+      return NextResponse.json({ success: false, error: e.message }, { status: 500 });
     }
+  });
+}
 
-    if (body.action === "close") {
-      url = `http://${IP}/cdor.cgi?open=0&door=0`;
+export async function GET(req: Request) {
+  return withAuth(req, async (user) => {
+    try {
+      const r = await pool.query(
+        `SELECT COUNT(*) as pending FROM relay_commands 
+         WHERE company_id = $1 AND status = 'pending' AND created_at > NOW() - INTERVAL '5 minutes'`,
+        [user.company_id]
+      );
+      const recentDone = await pool.query(
+        `SELECT id, action, status, created_at FROM relay_commands 
+         WHERE company_id = $1 AND status = 'done' AND created_at > NOW() - INTERVAL '5 minutes'
+         ORDER BY created_at DESC LIMIT 5`,
+        [user.company_id]
+      );
+      return ok({ pending: parseInt(r.rows[0].pending), recent: recentDone.rows, relay_online: true });
+    } catch (e: any) {
+      return ok({ relay_online: false, pending: 0, recent: [] });
     }
-
-    if (!url) {
-      return NextResponse.json({ success: false, error: "invalid action" });
-    }
-
-    const r = await fetch(url, {
-      headers: {
-        Authorization:
-          "Basic " + Buffer.from(`${USER}:${PASSWORD}`).toString("base64"),
-      },
-    });
-
-    return NextResponse.json({ success: r.ok, status: r.status });
-  } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message });
-  }
+  });
 }

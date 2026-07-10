@@ -24,7 +24,7 @@ export default function AccessControlPage() {
   const [connected, setConnected] = useState(false);
   const [activities, setActivities] = useState<any[]>([]);
   const [doorMsg, setDoorMsg] = useState("");
-  const lastEventIdRef = useRef("0");
+  const lastSeenRef = useRef<string>("");
   const [gates, setGates] = useState<any[]>([]);
   const [selectedGateId, setSelectedGateId] = useState<string>("");
   const [selectedGate, setSelectedGate] = useState<any>(null);
@@ -36,12 +36,6 @@ export default function AccessControlPage() {
 
   const cellPad = density === "compact" ? "py-2 px-3" : "py-3.5 px-4";
   const textSize = density === "compact" ? "text-[11px]" : "text-xs";
-
-  const getControllerIp = () => selectedGate?.ip_address || "192.168.0.68";
-
-  const controllerCmd = async () => {
-    try { await fetch("/api/parking/access/relay", { method: "POST", body: JSON.stringify({ action: "open" }) }); } catch {}
-  };
 
   const loadGates = async () => {
     if (!token) return;
@@ -62,8 +56,6 @@ export default function AccessControlPage() {
     setSelectedGateId(id);
     setSelectedGate(gates.find(g => g.id == id) || null);
     localStorage.setItem("selectedGateId", id);
-    setConnected(false);
-    lastEventIdRef.current = "0";
   };
 
   const loadCards = async () => {
@@ -87,81 +79,71 @@ export default function AccessControlPage() {
     setLoading(false);
   };
 
-  const ping = useCallback(async () => {
-    try { const r = await fetch("/api/parking/access?action=ping"); const d = await r.json(); setConnected(d.ok); } catch { setConnected(false); }
-  }, []);
-
-  const storeSwipe = async (swipe: any, lookupResult: any) => {
+  const checkRelay = useCallback(async () => {
     try {
-      const gateDirection = selectedGate?.direction || swipe.direction || null;
-      const direction = gateDirection === "both" ? swipe.direction || "in" : gateDirection;
-      await fetch("/api/parking/access/swipes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          card_uid: swipe.card, member_id: lookupResult?.member?.id || null, member_name: lookupResult?.member?.name || swipe.name || null,
-          direction, event_type: "SWIPE", controller_id: selectedGateId || null,
-          granted: lookupResult?.granted || false, reason: lookupResult?.granted ? "ACCESS_GRANTED" : (lookupResult?.reason || "UNKNOWN"),
-          message: lookupResult?.message || null, days_remaining: lookupResult?.days_remaining ?? 0,
-          plan_name: lookupResult?.subscription?.plan_name || null, subscription_id: lookupResult?.subscription?.id || null,
-        }),
-      });
-    } catch {}
-  };
-
-  const lookupCard = async (cardUid: string) => {
-    try {
-      const tok = localStorage.getItem("token");
-      if (!tok) return null;
-      const r = await fetch("/api/membership/parking/rfid-card-lookup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-        body: JSON.stringify({ card_uid: cardUid, gate_id: selectedGateId ? parseInt(selectedGateId) : undefined }),
-      });
-      return await r.json();
-    } catch { return null; }
-  };
-
-  const pollEvent = useCallback(async () => {
-    const id = lastEventIdRef.current;
-    try {
-      const r = await fetch(`/api/parking/access?action=event&ID=${id}`);
+      if (!token) return;
+      const r = await fetch("/api/parking/access/relay", { headers: { Authorization: `Bearer ${token}` } });
       const d = await r.json();
-      if (d.ok && d.data) {
-        const txt = d.data.replace(/>\s+</g, "><").replace(/\s+/g, " ");
-        const m = txt.match(/<response>(.*?)<\/response>/);
-        if (m) {
-          const ev = JSON.parse(m[1].replace(/<!--.*?-->/g, "").trim());
-          if (ev.ID && ev.ID !== lastEventIdRef.current) {
-            lastEventIdRef.current = ev.ID;
-            const gateDir = selectedGate?.direction || "";
-            const dir = gateDir === "both" ? (ev.Direction || "in") : gateDir;
-            const newSwipe: any = {
-              card: ev.Card, name: ev.Name || "", direction: dir, note: ev.Note || ev.Event || "",
-              time: ev.Time || new Date().toLocaleString(), lookup: null, granted: false,
-            };
-            if (ev.Card) {
-              const lookup = await lookupCard(ev.Card);
-              newSwipe.lookup = lookup;
-              if (lookup?.granted) { newSwipe.granted = true; controllerCmd(); setDoorMsg(`Door opened for ${lookup.member?.name || ev.Card}`); }
-              else { setDoorMsg(`${lookup ? "Access DENIED" : "Lookup FAILED"} for ${ev.Card}: ${lookup?.reason || lookup?.message || "Unknown"}`); }
-            }
-            storeSwipe(newSwipe, newSwipe.lookup);
-            setActivities(prev => [newSwipe, ...prev].slice(0, 200));
-          }
+      setConnected(d.ok && d.relay_online);
+    } catch { setConnected(false); }
+  }, [token]);
+
+  const pollLogs = useCallback(async () => {
+    if (!token) return;
+    try {
+      const sinceParam = lastSeenRef.current ? `&since=${encodeURIComponent(lastSeenRef.current)}` : "";
+      const r = await fetch(`/api/parking/access/live?limit=100${sinceParam}`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await r.json();
+      if (d.ok && d.data?.length) {
+        const newLogs = lastSeenRef.current
+          ? d.data.filter((l: any) => l.time > lastSeenRef.current)
+          : d.data.slice(0, 50);
+        if (newLogs.length > 0) {
+          lastSeenRef.current = newLogs[0].time;
+          const mapped = newLogs.map((l: any) => ({
+            id: l.id,
+            card: l.card_uid,
+            name: l.member_name,
+            direction: l.direction || "IN",
+            note: l.message || "",
+            time: new Date(l.time).toLocaleString(),
+            granted: l.granted,
+            days_remaining: l.days_remaining,
+            plan_name: l.plan_name,
+            member_id: l.member_id,
+            photo_url: l.photo_url,
+            member_code: l.member_code,
+          }));
+          setActivities(prev => [...mapped, ...prev].slice(0, 200));
         }
+      } else if (d.ok && !lastSeenRef.current && d.data?.length === 0) {
+        lastSeenRef.current = "init";
       }
     } catch {}
-  }, [selectedGateId, selectedGate]);
+  }, [token]);
 
   const openDoor = async () => {
-    try { const r = await fetch("/api/parking/access/relay", { method: "POST", body: JSON.stringify({ action: "open" }) }); const d = await r.json(); if (d.success) { setDoorMsg("Door command sent!"); return; } } catch {}
-    setDoorMsg("Door command sent!");
+    if (!token) return;
+    try {
+      const r = await fetch("/api/parking/access/relay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "open" }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        setDoorMsg("Door command sent to relay!");
+      } else {
+        setDoorMsg("Failed to send door command");
+      }
+    } catch {
+      setDoorMsg("Door command sent!");
+    }
     setTimeout(() => setDoorMsg(""), 3000);
   };
 
-  useEffect(() => { loadGates(); loadCards(); ping(); pingRef.current = setInterval(ping, 10000); return () => { clearInterval(pingRef.current); if (pollRef.current) clearInterval(pollRef.current); }; }, []);
-  useEffect(() => { if (pollRef.current) clearInterval(pollRef.current); pollRef.current = setInterval(pollEvent, 1500); return () => clearInterval(pollRef.current); }, [pollEvent]);
+  useEffect(() => { loadGates(); loadCards(); checkRelay(); pollLogs(); pingRef.current = setInterval(checkRelay, 10000); return () => { clearInterval(pingRef.current); if (pollRef.current) clearInterval(pollRef.current); }; }, []);
+  useEffect(() => { if (pollRef.current) clearInterval(pollRef.current); pollLogs(); pollRef.current = setInterval(pollLogs, 3000); return () => clearInterval(pollRef.current); }, [pollLogs]);
 
   const expiredCards = cards.filter(c => c.days_remaining === 0);
   const validCards = cards.filter(c => c.days_remaining > 0);
@@ -174,25 +156,21 @@ export default function AccessControlPage() {
     <GemPage>
       <GemHeader
         title="Access Control"
-        subtitle="Real-time RFID door monitoring"
+        subtitle="Real-time RFID door monitoring via relay"
         actions={
           <div className="flex items-center gap-3">
-            <a href="/en/access-control" target="_blank"
-              className="border border-gray-300 px-4 py-2.5 rounded-xl font-semibold text-sm text-gray-700 hover:bg-gray-100 transition-all inline-flex items-center gap-2">
-              <Monitor size={15} /> Desktop App
-            </a>
             <select className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20" style={{ minWidth: 180 }}
               value={selectedGateId} onChange={handleGateChange}>
               {gates.map(g => <option key={g.id} value={g.id}>{g.name} ({g.ip_address || "no IP"})</option>)}
             </select>
             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium ${connected ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
               {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-              {connected ? "Online" : "Offline"}
+              {connected ? "Relay Online" : "Relay Offline"}
             </div>
             <button onClick={openDoor} className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-all active:scale-[0.97] inline-flex items-center gap-2 shadow-sm shadow-emerald-200">
               <DoorOpen size={16} /> Open Door
             </button>
-            <button className="border border-gray-200 p-2.5 rounded-xl hover:bg-gray-50 transition-all active:scale-95" onClick={() => { setLoading(true); loadCards(); ping(); }}>
+            <button className="border border-gray-200 p-2.5 rounded-xl hover:bg-gray-50 transition-all active:scale-95" onClick={() => { setLoading(true); loadCards(); checkRelay(); lastSeenRef.current = ""; pollLogs(); }}>
               <RefreshCw size={16} className="text-gray-600" />
             </button>
           </div>
@@ -211,8 +189,8 @@ export default function AccessControlPage() {
       </div>
 
       {doorMsg && (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border mb-6 text-sm font-medium ${doorMsg.includes("DENIED") || doorMsg.includes("FAILED") || doorMsg.includes("Failed") ? "bg-red-50 text-red-800 border-red-200" : "bg-green-50 text-green-800 border-green-200"}`}>
-          {doorMsg.includes("DENIED") || doorMsg.includes("FAILED") || doorMsg.includes("Failed") ? <XCircle size={16} /> : <CheckCircle size={16} />}
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border mb-6 text-sm font-medium ${doorMsg.includes("Failed") ? "bg-red-50 text-red-800 border-red-200" : "bg-green-50 text-green-800 border-green-200"}`}>
+          {doorMsg.includes("Failed") ? <XCircle size={16} /> : <CheckCircle size={16} />}
           <span className="flex-1">{doorMsg}</span>
           <button onClick={() => setDoorMsg("")} className="text-current opacity-50 hover:opacity-100 text-lg leading-none">&times;</button>
         </div>
@@ -221,7 +199,7 @@ export default function AccessControlPage() {
       {!connected && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border bg-amber-50 text-amber-800 border-amber-200 mb-6 text-sm font-medium">
           <WifiOff size={16} />
-          <span>Controller at <strong>{getControllerIp()}</strong> not reachable</span>
+          <span>Relay not reachable — events still logged to DB by background relay process</span>
         </div>
       )}
 
@@ -251,7 +229,7 @@ export default function AccessControlPage() {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Activity size={18} className="text-gray-700" />
-            <span className="font-semibold text-base">Live Event</span>
+            <span className="font-semibold text-base">Live Event Feed</span>
             <span className="text-xs text-gray-400 font-medium ml-1">({activities.length})</span>
           </div>
           <div className="flex items-center gap-3">
@@ -265,6 +243,7 @@ export default function AccessControlPage() {
           <div className="text-center py-16 text-gray-400">
             <CreditCard size={40} className="mx-auto mb-4 opacity-40" />
             <p className="text-sm font-medium">Waiting for card swipe...</p>
+            <p className="text-xs mt-1">Events will appear here automatically from the relay</p>
           </div>
         ) : (
           <>
@@ -279,30 +258,26 @@ export default function AccessControlPage() {
                 </thead>
                 <tbody>
                   {visibleActivities.map((a, i) => {
-                    const lookup = a.lookup;
-                    const memberName = lookup?.member?.name || a.member_name || a.name || null;
-                    const daysLeft = a.days_remaining ?? lookup?.days_remaining ?? null;
-                    const planName = lookup?.subscription?.plan_name || a.plan_name || null;
-                    const eventText = a.granted ? "Access granted" : (!memberName && a.card ? "Card not registered" : a.note || "Access denied");
+                    const eventText = a.granted ? "Access granted" : (!a.name && a.card ? "Card not registered" : a.note || "Access denied");
                     return (
-                      <tr key={i} className={`border-b border-gray-50 transition-colors hover:bg-gray-50/50 ${a.granted ? "bg-emerald-50/20 border-l-[3px] border-l-emerald-500" : "bg-red-50/20 border-l-[3px] border-l-red-400"}`}>
+                      <tr key={a.id || i} className={`border-b border-gray-50 transition-colors hover:bg-gray-50/50 ${a.granted ? "bg-emerald-50/20 border-l-[3px] border-l-emerald-500" : "bg-red-50/20 border-l-[3px] border-l-red-400"}`}>
                         <td className={cellPad}><span className={`${textSize} text-gray-400 font-mono tabular-nums`}>{a.time}</span></td>
                         <td className={cellPad}>
-                          {memberName ? (
-                            <span className={`font-semibold ${density === "compact" ? "text-xs" : "text-sm"} text-gray-800`}>{memberName}</span>
+                          {a.name ? (
+                            <span className={`font-semibold ${density === "compact" ? "text-xs" : "text-sm"} text-gray-800`}>{a.name}</span>
                           ) : (
                             <span className={`text-gray-400 italic ${density === "compact" ? "text-xs" : "text-sm"}`}>Unknown</span>
                           )}
                         </td>
                         <td className={cellPad}>
-                          {planName ? (
-                            <span className={`${textSize} font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md inline-block max-w-[130px] truncate`}>{planName}</span>
+                          {a.plan_name ? (
+                            <span className={`${textSize} font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md inline-block max-w-[130px] truncate`}>{a.plan_name}</span>
                           ) : <span className="text-gray-300">—</span>}
                         </td>
                         <td className={cellPad}>
-                          {daysLeft !== null ? (
-                            <span className={`${textSize} font-bold ${daysLeft > 0 ? "text-emerald-600" : "text-red-500"}`}>
-                              {daysLeft > 0 ? `${daysLeft}d` : "Expired"}
+                          {a.days_remaining != null ? (
+                            <span className={`${textSize} font-bold ${a.days_remaining > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                              {a.days_remaining > 0 ? `${a.days_remaining}d` : "Expired"}
                             </span>
                           ) : <span className="text-gray-300">—</span>}
                         </td>

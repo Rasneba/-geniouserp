@@ -61,11 +61,12 @@ async function openDoor() {
   controllerCmd("/cdor.cgi?open=1&door=0");
 }
 
-async function logAccess(cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened) {
+async function logAccess(cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened, extra = {}) {
   await query(
-    `INSERT INTO rfid_access_logs (company_id, card_uid, member_id, member_name, granted, reason, message, days_remaining, door_opened)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-    [1, cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened]
+    `INSERT INTO rfid_access_logs (company_id, card_uid, member_id, member_name, granted, reason, message, days_remaining, door_opened, direction, event_type, plan_name, subscription_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    [1, cardUid, memberId, memberName, granted, reason, message, daysRemaining, doorOpened,
+     extra.direction || "IN", extra.event_type || "SWIPE", extra.plan_name || null, extra.subscription_id || null]
   );
 }
 
@@ -118,9 +119,11 @@ async function lookupCard(cardUid) {
 
   const today = new Date().toISOString().split("T")[0];
   const subs = await query(
-    `SELECT id, end_date FROM parking_subscriptions
-     WHERE customer_id = $1 AND status IN ('active','pending') AND start_date <= $2 AND end_date >= $2
-     ORDER BY end_date DESC LIMIT 1`,
+    `SELECT ps.id, ps.end_date, mp.name AS plan_name
+     FROM parking_subscriptions ps
+     LEFT JOIN membership_plans mp ON ps.plan_id = mp.id
+     WHERE ps.customer_id = $1 AND ps.status IN ('active','pending') AND ps.start_date <= $2 AND ps.end_date >= $2
+     ORDER BY ps.end_date DESC LIMIT 1`,
     [card.member_id, today]
   );
 
@@ -133,7 +136,8 @@ async function lookupCard(cardUid) {
   const daysRemaining = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000));
 
   await query("UPDATE rfid_cards SET last_used_at = CURRENT_TIMESTAMP WHERE id = $1", [card.id]);
-  await logAccess(cardUid, card.member_id, card.member_name, true, "ACCESS_GRANTED", "Access granted", daysRemaining, true);
+  await logAccess(cardUid, card.member_id, card.member_name, true, "ACCESS_GRANTED", "Access granted", daysRemaining, true,
+    { plan_name: sub.plan_name || null, subscription_id: sub.id, direction: "IN" });
 
   return {
     granted: true,
