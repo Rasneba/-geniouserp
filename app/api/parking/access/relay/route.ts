@@ -35,9 +35,9 @@ export async function GET(req: Request) {
          ORDER BY created_at DESC LIMIT 5`,
         [user.company_id]
       );
-      return ok({ pending: parseInt(r.rows[0].pending), recent: recentDone.rows, relay_online: true });
+      return ok({ ok: true, relay_online: true, pending: parseInt(r.rows[0].pending), recent: recentDone.rows });
     } catch (e: any) {
-      return ok({ relay_online: false, pending: 0, recent: [] });
+      return ok({ ok: true, relay_online: false, pending: 0, recent: [] });
     }
   });
 }

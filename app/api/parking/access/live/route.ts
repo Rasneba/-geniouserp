@@ -50,7 +50,7 @@ export async function GET(req: Request) {
         member_code: r.member_code,
       }));
 
-      return ok({ data: rows, total: rows.length });
+      return ok({ ok: true, data: rows, total: rows.length });
     } catch (e: any) {
       return NextResponse.json({ error: e.message }, { status: 500 });
     }
