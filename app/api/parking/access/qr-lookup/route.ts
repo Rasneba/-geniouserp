@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       const denyChecks = [
         { cond: sub.status === "cancelled", reason: "SUBSCRIPTION_CANCELLED", msg: "Subscription is cancelled" },
         { cond: sub.status === "expired" || sub.end_date < today, reason: "SUBSCRIPTION_EXPIRED", msg: "Subscription has expired" },
-        { cond: sub.status === "frozen", reason: "SUBSCRIPTION_FROZEN", msg: "Subscription is frozen" },
+        { cond: sub.status === "frozen" || (sub.freeze_start && sub.freeze_end && today >= sub.freeze_start && today <= sub.freeze_end), reason: "SUBSCRIPTION_FROZEN", msg: "Subscription is frozen" },
         { cond: sub.start_date > today, reason: "SUBSCRIPTION_NOT_STARTED", msg: "Subscription not yet active" },
       ];
 

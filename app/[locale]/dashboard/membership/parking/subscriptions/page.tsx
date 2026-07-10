@@ -20,6 +20,9 @@ export default function ParkingSubscriptionsPage() {
   const [saving, setSaving] = useState(false);
   const [editingSub, setEditingSub] = useState<any>(null);
   const [freezing, setFreezing] = useState<number | null>(null);
+  const [freezeModal, setFreezeModal] = useState<any>(null);
+  const [freezeStart, setFreezeStart] = useState("");
+  const [freezeEnd, setFreezeEnd] = useState("");
   const [reportView, setReportView] = useState(false);
   const [qrModal, setQrModal] = useState<any>(null);
   const [rfDateRange, setRfDateRange] = useState("01/01/2026 - 12/31/2026");
@@ -154,15 +157,37 @@ export default function ParkingSubscriptionsPage() {
 
   const handleFreeze = async (id: number, currentStatus: string) => {
     if (!token) return;
-    const isFrozen = currentStatus === "frozen";
-    if (!confirm(isFrozen ? "Unfreeze this subscription?" : "Freeze this subscription?")) return;
-    setFreezing(id);
+    if (currentStatus === "frozen") {
+      if (!confirm("Unfreeze this subscription? End date will be extended by the freeze duration.")) return;
+      setFreezing(id);
+      try {
+        await fetch(`/api/membership/parking/subscriptions/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ status: "active" }),
+        });
+        load();
+      } catch {}
+      setFreezing(null);
+    } else {
+      const today = new Date().toISOString().split("T")[0];
+      setFreezeStart(today);
+      setFreezeEnd("");
+      setFreezeModal({ id, sub: subscriptions.find((s: any) => s.id === id) });
+    }
+  };
+
+  const confirmFreeze = async () => {
+    if (!token || !freezeModal || !freezeStart || !freezeEnd) return;
+    if (new Date(freezeEnd) < new Date(freezeStart)) { alert("Freeze end date must be after start date"); return; }
+    setFreezing(freezeModal.id);
     try {
-      await fetch(`/api/membership/parking/subscriptions/${id}`, {
+      await fetch(`/api/membership/parking/subscriptions/${freezeModal.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: isFrozen ? "active" : "frozen" }),
+        body: JSON.stringify({ status: "frozen", freeze_start: freezeStart, freeze_end: freezeEnd }),
       });
+      setFreezeModal(null);
       load();
     } catch {}
     setFreezing(null);
@@ -248,6 +273,7 @@ export default function ParkingSubscriptionsPage() {
         <GemSelect value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ width: 140 }}>
           <option value="">All Status</option>
           <option value="active">Active</option>
+          <option value="frozen">Frozen</option>
           <option value="expired">Expired</option>
           <option value="cancelled">Cancelled</option>
           <option value="pending">Pending</option>
@@ -369,10 +395,13 @@ export default function ParkingSubscriptionsPage() {
             onDateRangeChange={setRfDateRange}
             facility={rfFacility}
             onFacilityChange={setRfFacility}
+            facilityOptions={[]}
             person={rfPerson}
             onPersonChange={setRfPerson}
+            personOptions={customers.map(c => ({ value: String(c.id), label: `${c.customer_id} - ${c.full_name}` }))}
             card={rfCard}
             onCardChange={setRfCard}
+            cardOptions={cards.map(c => ({ value: String(c.id), label: c.card_uid }))}
             freez={rfFreez}
             onFreezChange={setRfFreez}
             remaining={rfRemaining}
@@ -399,7 +428,7 @@ export default function ParkingSubscriptionsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {["#", "Customer", "Phone", "Plate", "Plan", "Start", "End", "Remaining", "Cards", "Amount", "Payment", "Status", "Auto", ""].map(h => (
+                  {["#", "Customer", "Phone", "Plate", "Plan", "Start", "End", "Remaining", "Cards", "Amount", "Payment", "Status", "Freeze", "Auto", ""].map(h => (
                     <th key={h} className="text-left text-xs text-gray-500 font-semibold uppercase tracking-wider px-4 py-3.5">{h}</th>
                   ))}
                 </tr>
@@ -433,6 +462,14 @@ export default function ParkingSubscriptionsPage() {
                       <td className="py-3.5 px-4 font-semibold text-sm">ETB {Number(s.amount).toLocaleString()}</td>
                       <td className="py-3.5 px-4 text-sm text-gray-500">{s.payment_method}</td>
                       <td className="py-3.5 px-4">{statusBadge(s.status)}</td>
+                      <td className="py-3.5 px-4 text-xs text-gray-500">
+                        {s.freeze_start && s.freeze_end ? (
+                          <div>
+                            <div>{new Date(s.freeze_start).toLocaleDateString()}</div>
+                            <div className="text-gray-400">to {new Date(s.freeze_end).toLocaleDateString()}</div>
+                          </div>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="py-3.5 px-4">{s.auto_renew ? <GemBadge variant="info">Yes</GemBadge> : <span className="text-gray-300 text-sm">No</span>}</td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1">
@@ -503,6 +540,44 @@ export default function ParkingSubscriptionsPage() {
               >
                 <Download size={15} /> Download QR
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {freezeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setFreezeModal(null)}>
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2"><Snowflake size={18} className="text-blue-500" /> Freeze Subscription</h3>
+              <button onClick={() => setFreezeModal(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="mb-4 p-3 bg-blue-50 rounded-xl text-sm text-blue-800">
+              <p className="font-semibold">{freezeModal.sub?.customer_name}</p>
+              <p className="text-xs text-blue-600 mt-1">Sub #{freezeModal.sub?.id} &middot; {freezeModal.sub?.plan_name || freezeModal.sub?.plan_type}</p>
+              <p className="text-xs text-blue-500 mt-1">Ends: {new Date(freezeModal.sub?.end_date).toLocaleDateString()}</p>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">During the freeze period the door will not open. After unfreezing, the end date will be extended by the freeze duration.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-gray-500 font-medium mb-1 block">Freeze Start Date</label>
+                <GemInput type="date" value={freezeStart} onChange={e => setFreezeStart(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 font-medium mb-1 block">Freeze End Date</label>
+                <GemInput type="date" value={freezeEnd} onChange={e => setFreezeEnd(e.target.value)} />
+              </div>
+              {freezeStart && freezeEnd && new Date(freezeEnd) >= new Date(freezeStart) && (
+                <div className="p-2 bg-amber-50 rounded-lg text-xs text-amber-700">
+                  Duration: {Math.ceil((new Date(freezeEnd).getTime() - new Date(freezeStart).getTime()) / (1000 * 60 * 60 * 24))} days &middot; End date will be extended by this amount
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <GemBtnOutline onClick={() => setFreezeModal(null)}>Cancel</GemBtnOutline>
+              <GemBtn onClick={confirmFreeze} disabled={!freezeStart || !freezeEnd || freezing === freezeModal.id}>
+                <Snowflake size={15} />
+                {freezing === freezeModal.id ? "Freezing..." : "Confirm Freeze"}
+              </GemBtn>
             </div>
           </div>
         </div>

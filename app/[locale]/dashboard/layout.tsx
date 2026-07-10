@@ -168,6 +168,7 @@ const sidebarGroups: any[] = [
        { name: "Users", href: "/dashboard/users", icon: "bi-people", adminOnly: true, resource: "users" },
        { name: "Roles & Permissions", href: "/dashboard/roles", icon: "bi-shield-lock", adminOnly: true, resource: "roles" },
        { name: "Settings", href: "/dashboard/settings", icon: "bi-gear", adminOnly: true, resource: "settings" },
+       { name: "System Settings", href: "/dashboard/system-settings", icon: "bi-gear-wide-connected", adminOnly: true, resource: "settings" },
        { name: "Documents", href: "/dashboard/documents", icon: "bi-file-text", adminOnly: true, resource: "documents" },
        { name: "Notifications", href: "/dashboard/notifications", icon: "bi-bell", adminOnly: true, resource: "notifications" },
        { name: "Manuals", href: "/dashboard/admin/manuals", icon: "bi-journal-bookmark-fill", adminOnly: true, superAdminOnly: true, resource: "documents" },
