@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { withAuth, ok, created, err, notFound, badRequest, deleted } from "@/lib/api-utils";
 import { requirePermission } from "@/lib/permissions";
+import QRCode from "qrcode";
 
 export async function GET(req: Request) {
   return withAuth(req, async (user) => {
@@ -67,7 +68,14 @@ export async function POST(req: Request) {
         await pool.query("UPDATE parking_vehicles SET is_resident = true WHERE id = $1", [vehicle_id]);
       }
 
-      return created(result.rows[0]);
+      const sub = result.rows[0];
+      const qrData = JSON.stringify({ t: "sub", sid: sub.id, cid: user.company_id, exp: sub.end_date });
+      const qrImage = await QRCode.toDataURL(qrData, { width: 300, margin: 2 });
+      await pool.query("UPDATE parking_subscriptions SET qr_code = $1, qr_image = $2 WHERE id = $3", [Buffer.from(qrData).toString("base64"), qrImage, sub.id]);
+      sub.qr_code = Buffer.from(qrData).toString("base64");
+      sub.qr_image = qrImage;
+
+      return created(sub);
     } catch (e: any) { return err(e.message); }
   });
 }

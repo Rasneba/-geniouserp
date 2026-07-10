@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { GemPage, GemHeader, GemCard, GemCardBare, GemKpi, GemBtn, GemBtnOutline, GemBadge, GemSelect, GemInput, GemAlert } from "@/lib/gem-ui";
 import { ReportFilters, MembershipReportTable } from "@/components";
-import { CalendarCheck, Plus, X, Download, Printer, Save, CreditCard, Users, TrendingUp, Clock, Edit3, Snowflake, BarChart3, Table2 } from "lucide-react";
+import { CalendarCheck, Plus, X, Download, Printer, Save, CreditCard, Users, TrendingUp, Clock, Edit3, Snowflake, BarChart3, Table2, QrCode } from "lucide-react";
 
 export default function ParkingSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
@@ -21,6 +21,7 @@ export default function ParkingSubscriptionsPage() {
   const [editingSub, setEditingSub] = useState<any>(null);
   const [freezing, setFreezing] = useState<number | null>(null);
   const [reportView, setReportView] = useState(false);
+  const [qrModal, setQrModal] = useState<any>(null);
   const [rfDateRange, setRfDateRange] = useState("01/01/2026 - 12/31/2026");
   const [rfFacility, setRfFacility] = useState("");
   const [rfPerson, setRfPerson] = useState("");
@@ -197,6 +198,10 @@ export default function ParkingSubscriptionsPage() {
   };
 
   const handlePrint = () => { window.print(); };
+
+  const handleQrDownload = (sub: any) => {
+    setQrModal(sub);
+  };
 
   const planBadge = (s: any) => {
     const label = s.plan_name || s.plan_type?.replace("_", " ") || "N/A";
@@ -431,6 +436,9 @@ export default function ParkingSubscriptionsPage() {
                       <td className="py-3.5 px-4">{s.auto_renew ? <GemBadge variant="info">Yes</GemBadge> : <span className="text-gray-300 text-sm">No</span>}</td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1">
+                          <button className="text-purple-500 hover:text-purple-700 transition-colors p-1" onClick={() => handleQrDownload(s)} title="QR Code">
+                            <QrCode size={15} />
+                          </button>
                           <button className="text-blue-500 hover:text-blue-700 transition-colors p-1" onClick={() => handleEdit(s)} title="Edit">
                             <Edit3 size={15} />
                           </button>
@@ -466,6 +474,38 @@ export default function ParkingSubscriptionsPage() {
         )}
       </GemCardBare>
       </div>
+      )}
+      {qrModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setQrModal(null)}>
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Subscription QR</h3>
+              <button onClick={() => setQrModal(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="text-center">
+              {qrModal.qr_image ? (
+                <img src={qrModal.qr_image} alt="QR Code" className="mx-auto mb-4 rounded-xl" style={{ width: 220, height: 220 }} />
+              ) : (
+                <div className="w-56 h-56 bg-gray-100 rounded-xl mx-auto mb-4 flex items-center justify-center text-gray-400">No QR</div>
+              )}
+              <p className="text-sm font-semibold mb-1">{qrModal.customer_name}</p>
+              <p className="text-xs text-gray-500 mb-1">Sub #{qrModal.id} &middot; {qrModal.plan_name || qrModal.plan_type}</p>
+              <p className="text-xs text-gray-400 mb-4">Valid until {new Date(qrModal.end_date).toLocaleDateString()}</p>
+              <button
+                onClick={() => {
+                  if (!qrModal.qr_image) return;
+                  const a = document.createElement("a");
+                  a.href = qrModal.qr_image;
+                  a.download = `sub-${qrModal.id}-qr.png`;
+                  a.click();
+                }}
+                className="inline-flex items-center gap-2 bg-black text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-gray-800 transition-colors"
+              >
+                <Download size={15} /> Download QR
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </GemPage>
   );

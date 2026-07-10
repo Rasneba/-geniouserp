@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import {
   ShieldCheck, CreditCard, AlertTriangle, XOctagon, Activity,
   ArrowRight, ArrowLeft, CheckCircle, XCircle, Wifi, WifiOff,
-  RefreshCw, Maximize2, Minimize2, Monitor, DoorOpen
+  RefreshCw, Maximize2, Minimize2, Monitor, DoorOpen, QrCode, User, Clock, X
 } from "lucide-react";
 
 function MiniSpark({ value, max, color }: { value: number; max: number; color: string }) {
@@ -36,6 +36,11 @@ export default function StandaloneAccessPage() {
   const [showLimit, setShowLimit] = useState(100);
   const [density, setDensity] = useState<"compact" | "comfortable">("compact");
   const [doorMsg, setDoorMsg] = useState("");
+  const qrInputRef = useRef<HTMLInputElement>(null);
+  const [qrFocused, setQrFocused] = useState(false);
+  const [lastScan, setLastScan] = useState<any>(null);
+  const qrBufferRef = useRef("");
+  const qrTimerRef = useRef<any>(null);
 
   const cellPad = density === "compact" ? "py-2.5 px-3" : "py-3.5 px-4";
 
@@ -103,7 +108,7 @@ export default function StandaloneAccessPage() {
         body: JSON.stringify({
           card_uid: swipe.card, member_id: lookupResult?.member?.id || null,
           member_name: lookupResult?.member?.name || swipe.name || null,
-          direction: dir, event_type: "SWIPE", controller_id: selectedGateId || null,
+          direction: dir, event_type: swipe.event_type || "SWIPE", controller_id: selectedGateId || null,
           granted: lookupResult?.granted || false,
           reason: lookupResult?.granted ? "ACCESS_GRANTED" : (lookupResult?.reason || "UNKNOWN"),
           message: lookupResult?.message || null, days_remaining: lookupResult?.days_remaining ?? 0,
@@ -126,6 +131,59 @@ export default function StandaloneAccessPage() {
     } catch { return null; }
   };
 
+  const lookupQr = async (qrPayload: any) => {
+    try {
+      const tok = localStorage.getItem("token");
+      if (!tok) return null;
+      const r = await fetch("/api/parking/access/qr-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify(qrPayload),
+      });
+      return await r.json();
+    } catch { return null; }
+  };
+
+  const processQrScan = useCallback(async (rawText: string) => {
+    let parsed: any;
+    try { parsed = JSON.parse(rawText); } catch { return; }
+    if (!parsed || parsed.t !== "sub" || !parsed.sid) return;
+
+    const lookup = await lookupQr(parsed);
+    const time = new Date().toLocaleString();
+    const granted = lookup?.granted || false;
+    const name = lookup?.member?.name || null;
+    const plan = lookup?.subscription?.plan_name || null;
+    const days = lookup?.days_remaining ?? 0;
+    const reason = lookup?.reason || "UNKNOWN";
+
+    const newActivity: any = {
+      card: `QR-${parsed.sid}`, name, direction: "IN",
+      note: lookup?.message || reason, time, lookup,
+      granted, event_type: "QR_SCAN", member_name: name,
+      plan_name: plan, days_remaining: days,
+    };
+
+    storeSwipe(newActivity, lookup);
+    setActivities(prev => [newActivity, ...prev].slice(0, 500));
+    setLastScan({ ...newActivity, subscription_id: parsed.sid, plan, days });
+    if (granted) controllerCmd();
+    setTimeout(() => setLastScan(null), 8000);
+  }, [selectedGateId]);
+
+  const handleQrKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const val = qrBufferRef.current.trim();
+      qrBufferRef.current = "";
+      if (val) processQrScan(val);
+      return;
+    }
+    qrBufferRef.current += e.key;
+    if (qrTimerRef.current) clearTimeout(qrTimerRef.current);
+    qrTimerRef.current = setTimeout(() => { qrBufferRef.current = ""; }, 5000);
+  }, [processQrScan]);
+
   const pollEvent = useCallback(async () => {
     const id = lastEventIdRef.current;
     try {
@@ -142,7 +200,7 @@ export default function StandaloneAccessPage() {
             const newSwipe: any = {
               card: ev.Card, name: ev.Name || "", direction: dir,
               note: ev.Note || ev.Event || "", time: ev.Time || new Date().toLocaleString(),
-              lookup: null, granted: false,
+              lookup: null, granted: false, event_type: "SWIPE",
             };
             if (ev.Card) {
               const lookup = await lookupCard(ev.Card);
@@ -196,6 +254,20 @@ export default function StandaloneAccessPage() {
 
   return (
     <div style={{ background: "#0f1117", minHeight: "100vh", color: "#fff", fontFamily: "'Inter','SF Pro',system-ui,sans-serif" }}>
+      {/* Hidden QR input - always ready for USB QR reader */}
+      <input
+        ref={qrInputRef}
+        type="text"
+        autoFocus
+        readOnly
+        onFocus={() => setQrFocused(true)}
+        onBlur={() => setQrFocused(false)}
+        onKeyDown={handleQrKeyDown}
+        className="fixed opacity-0 pointer-events-none"
+        style={{ top: -100, left: -100, width: 1, height: 1 }}
+        tabIndex={-1}
+      />
+
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)" }}>
         <div className="flex items-center gap-4">
@@ -207,8 +279,20 @@ export default function StandaloneAccessPage() {
             value={selectedGateId} onChange={handleGateChange}>
             {gates.map(g => <option key={g.id} value={g.id} style={{ background: "#1a1d27" }}>{g.name}</option>)}
           </select>
+          {selectedGate && (
+            <div className="flex items-center gap-3 text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+              {selectedGate.ip_address && <span>IP: {selectedGate.ip_address}</span>}
+              {selectedGate.is_rfid_enabled && <span className="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">RFID</span>}
+              {selectedGate.is_qr_enabled && <span className="px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 font-semibold">QR</span>}
+              {selectedGate.is_nfc_enabled && <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-semibold">NFC</span>}
+              {selectedGate.is_anpr_enabled && <span className="px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400 font-semibold">ANPR</span>}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-lg ${qrFocused ? "text-purple-400 bg-purple-500/10" : "text-gray-500 bg-white/5"}`}>
+            <QrCode size={12} /> QR {qrFocused ? "Ready" : "Off"}
+          </div>
           <button onClick={openDoor} className="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-sm transition-all active:scale-[0.97]">
             <DoorOpen size={13} /> Open
           </button>
@@ -230,6 +314,40 @@ export default function StandaloneAccessPage() {
           </button>
         </div>
       </div>
+
+      {/* Last scan member info card */}
+      {lastScan && (
+        <div className="mx-5 mt-4 rounded-xl overflow-hidden" style={{
+          border: `1px solid ${lastScan.granted ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+          background: lastScan.granted ? "rgba(34,197,94,0.05)" : "rgba(239,68,68,0.05)",
+        }}>
+          <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${lastScan.granted ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
+                {lastScan.granted ? <CheckCircle size={28} className="text-emerald-400" /> : <XCircle size={28} className="text-red-400" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="text-lg font-bold text-white">{lastScan.member_name || "Unknown"}</span>
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-lg ${lastScan.granted ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                    {lastScan.granted ? "ACCESS GRANTED" : lastScan.note || "DENIED"}
+                  </span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-500/15 text-purple-400">QR SCAN</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  {lastScan.plan && <span className="flex items-center gap-1"><ShieldCheck size={11} /> {lastScan.plan}</span>}
+                  {lastScan.days > 0 && <span className="flex items-center gap-1 text-emerald-400 font-semibold"><Clock size={11} /> {lastScan.days}d remaining</span>}
+                  {lastScan.days === 0 && <span className="flex items-center gap-1 text-red-400 font-semibold"><Clock size={11} /> Expired</span>}
+                  <span className="flex items-center gap-1"><CreditCard size={11} /> Sub #{lastScan.subscription_id}</span>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setLastScan(null)} className="text-gray-500 hover:text-gray-300 transition-colors p-1">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3 px-5 py-4">
@@ -274,15 +392,19 @@ export default function StandaloneAccessPage() {
         </div>
         {activities.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}>
-            <CreditCard size={48} className="mb-4 opacity-30" />
-            <p className="text-sm font-medium">Waiting for card swipe...</p>
+            <div className="flex items-center gap-6 mb-4 opacity-30">
+              <CreditCard size={40} />
+              <QrCode size={40} />
+            </div>
+            <p className="text-sm font-medium">Waiting for card swipe or QR scan...</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.15)" }}>Present RFID card or scan subscription QR code</p>
           </div>
         ) : (
-          <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 300px)" }}>
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 340px)" }}>
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10">
                 <tr style={{ background: "#0f1117" }}>
-                  {["Time", "Name", "Plan", "Left", "Card", "Dir", "Event"].map(h => (
+                  {["Time", "Name", "Plan", "Left", "ID", "Type", "Event"].map(h => (
                     <th key={h} className={`text-left font-semibold uppercase tracking-wider ${cellPad}`} style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
                   ))}
                 </tr>
@@ -293,6 +415,7 @@ export default function StandaloneAccessPage() {
                   const name = lk?.member?.name || a.member_name || a.name || null;
                   const days = a.days_remaining ?? lk?.days_remaining ?? null;
                   const plan = lk?.subscription?.plan_name || a.plan_name || null;
+                  const isQr = a.event_type === "QR_SCAN";
                   const ev = a.granted ? "Access granted" : (!name && a.card ? "Card not registered" : a.note || "Access denied");
                   return (
                     <tr key={i} className="transition-colors hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
@@ -308,13 +431,11 @@ export default function StandaloneAccessPage() {
                           <span className={`text-xs font-bold ${days > 0 ? "text-emerald-400" : "text-red-400"}`}>{days > 0 ? `${days}d` : "Expired"}</span>
                         ) : <span style={{ color: "rgba(255,255,255,0.15)" }}>—</span>}
                       </td>
-                      <td className={cellPad}><code className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "#60a5fa" }}>{a.card}</code></td>
+                      <td className={cellPad}><code className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: isQr ? "#c084fc" : "#60a5fa" }}>{a.card}</code></td>
                       <td className={cellPad}>
-                        {a.direction ? (
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded ${a.direction === "IN" ? "text-emerald-400 bg-emerald-500/10" : "text-amber-400 bg-amber-500/10"}`}>
-                            {a.direction === "IN" ? <ArrowRight size={10} /> : <ArrowLeft size={10} />}{a.direction}
-                          </span>
-                        ) : <span style={{ color: "rgba(255,255,255,0.15)" }}>—</span>}
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded ${isQr ? "text-purple-400 bg-purple-500/10" : "text-blue-400 bg-blue-500/10"}`}>
+                          {isQr ? <QrCode size={10} /> : <CreditCard size={10} />}{isQr ? "QR" : "RFID"}
+                        </span>
                       </td>
                       <td className={cellPad}>
                         <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${a.granted ? "text-emerald-400" : "text-red-400"}`}>
@@ -337,7 +458,7 @@ export default function StandaloneAccessPage() {
       </div>
 
       <div className="text-center py-3 text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>
-        Access Control v1 &middot; {new Date().toLocaleDateString()}
+        Access Control v2 &middot; QR + RFID &middot; {new Date().toLocaleDateString()}
       </div>
     </div>
   );

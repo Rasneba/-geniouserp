@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { getAuthUser, unauthorized } from "@/lib/auth";
+import QRCode from "qrcode";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getAuthUser(req);
@@ -47,7 +48,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       `UPDATE parking_subscriptions SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`, vals
     );
     if (result.rows.length === 0) return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
-    return NextResponse.json(result.rows[0]);
+
+    const updated = result.rows[0];
+    if (body.status !== undefined || body.end_date !== undefined) {
+      const qrData = JSON.stringify({ t: "sub", sid: updated.id, cid: updated.company_id, exp: updated.end_date });
+      const qrImage = await QRCode.toDataURL(qrData, { width: 300, margin: 2 });
+      await pool.query("UPDATE parking_subscriptions SET qr_code = $1, qr_image = $2 WHERE id = $3", [Buffer.from(qrData).toString("base64"), qrImage, updated.id]);
+      updated.qr_code = Buffer.from(qrData).toString("base64");
+      updated.qr_image = qrImage;
+    }
+
+    return NextResponse.json(updated);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
