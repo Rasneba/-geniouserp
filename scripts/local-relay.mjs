@@ -31,7 +31,6 @@ const CONTROLLER_HEADERS = { Authorization: `Basic ${CONTROLLER_AUTH}` };
 const FETCH_OPTS = { headers: CONTROLLER_HEADERS };
 
 let lastEventId = "0";
-const lastSwipeAt = {};
 
 async function query(sql, params = []) {
   try {
@@ -161,7 +160,13 @@ async function pollTasks() {
   if (!rows || rows.length === 0) return;
   for (const task of rows) {
     console.log(`  TASK #${task.id}: ${task.action}`);
-    if (task.action === "open_door") await openDoor();
+    if (task.action === "open_door") {
+      await openDoor();
+      const cid = task.company_id || 1;
+      await logAccess("BUTTON", null, null, true, "REMOTE_OPEN", "Door opened via button", 0, true, {
+        company_id: cid, direction: "IN", event_type: "REMOTE_OPEN"
+      });
+    }
     await query(
       "UPDATE relay_commands SET status = 'done', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
       [task.id]
@@ -171,7 +176,7 @@ async function pollTasks() {
 }
 
 async function pollEvents() {
-  let raw = await controllerFetch(`/Event.xml?ID=0`);
+  let raw = await controllerFetch(`/Event.xml?ID=${lastEventId}`);
   if (!raw) return;
   raw = raw.replace(/>\s+</g, "><").replace(/\s+/g, " ");
   const m = raw.match(/<response>(.*?)<\/response>/);
@@ -179,12 +184,10 @@ async function pollEvents() {
   try {
     const ev = JSON.parse(m[1]);
     if (!ev.Card || !ev.ID) return;
-    const now = Date.now();
-    const last = lastSwipeAt[ev.Card] || 0;
-    if (now - last < 3000) return;
-    lastSwipeAt[ev.Card] = now;
+    if (String(ev.ID) === String(lastEventId)) return;
+    lastEventId = ev.ID;
     const cardUid = ev.Card;
-    console.log(`  SWIPE card=${cardUid} time=${ev.Time} reader=${ev.Reader || "?"}`);
+    console.log(`  SWIPE card=${cardUid} id=${ev.ID} time=${ev.Time} reader=${ev.Reader || "?"}`);
     const lookup = await lookupCard(cardUid);
     if (lookup.granted) {
       console.log(`  GRANTED for ${lookup.member?.name || cardUid} (${lookup.days_remaining}d left)`);
