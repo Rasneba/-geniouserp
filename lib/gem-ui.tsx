@@ -138,7 +138,7 @@ export function GemBadge({ children, variant = "default" }: { children: ReactNod
   );
 }
 
-export function GemInput({ className = "", ...props }: any) {
+export function GemInput({ className = "", ...props }: React.ComponentProps<"input"> & { className?: string }) {
   return (
     <input
       className={`w-full rounded-xl px-4 py-2.5 text-sm transition-all focus:outline-none focus:ring-2 ${className}`}
