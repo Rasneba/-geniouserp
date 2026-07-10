@@ -54,8 +54,9 @@ async function controllerFetch(path) {
 
 function controllerCmd(path) {
   const url = `${CONTROLLER}${path}`;
-  fetch(url, { ...FETCH_OPTS }).catch(() => {});
-  console.log(`  CMD ${url}`);
+  fetch(url, { method: "POST", ...FETCH_OPTS, signal: AbortSignal.timeout(10000) })
+    .then(res => { console.log(`  CMD POST ${url} => ${res.status}`); })
+    .catch(e => { console.log(`  CMD POST ${url} => ERR: ${e.message}`); });
 }
 
 async function openDoor() {
