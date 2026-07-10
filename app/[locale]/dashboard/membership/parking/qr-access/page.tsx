@@ -139,7 +139,7 @@ export default function QRAccessPage() {
     try { parsed = JSON.parse(rawText); } catch { return; }
     if (!parsed || parsed.t !== "sub" || !parsed.sid) return;
 
-    const lookup = await lookupQr({ subscription_id: parsed.sid, company_id: parsed.cid });
+    const lookup = await lookupQr(parsed);
     const granted = lookup?.granted || false;
     const name = lookup?.member?.name || null;
     const plan = lookup?.subscription?.plan_name || null;

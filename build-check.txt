@@ -1,0 +1,321 @@
+﻿Γû▓ Next.js 16.2.10 (Turbopack)
+- Environments: .env
+- Experiments (use with caution):
+  ┬╖ optimizePackageImports
+
+node.exe : ΓÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: 
+https://nextjs.org/docs/messages/middleware-to-proxy
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ΓÜá The "middle...leware-to-proxy:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Creating an optimized production build ...
+Turbopack build encountered 1 warnings:
+./app/api/biometric-devices/sync/route.ts:25:29
+Module not found: Can't resolve 'node-zklib'
+  [90m23 |[0m     [36mlet[0m errors: string[] = [];
+  [90m24 |[0m
+[31m[1m>[0m [90m25 |[0m     [36mconst[0m { [33mZKLib[0m } = [36mawait[0m 
+[36mimport[0m([32m"node-zklib"[0m);
+  [90m   |[0m                             [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m26 |[0m
+  [90m27 |[0m     [36mconst[0m zkInstance = [36mnew[0m [33mZKLib[0m(device.ip_address, device.port, 
+[35m10000[0m, [35m4000[0m);
+  [90m28 |[0m
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+Γ£ô Compiled successfully in 44s
+  Running TypeScript ...
+  Finished TypeScript in 38.0s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/96) ...
+  Generating static pages using 3 workers (24/96) 
+  Generating static pages using 3 workers (48/96) 
+  Generating static pages using 3 workers (72/96) 
+Γ£ô Generating static pages using 3 workers (96/96) in 1075ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /_not-found
+Γö£ ╞Æ /[locale]
+Γö£ ╞Æ /[locale]/dashboard
+Γö£ ╞Æ /[locale]/dashboard/admin
+Γö£ ╞Æ /[locale]/dashboard/admin/issued-manuals
+Γö£ ╞Æ /[locale]/dashboard/admin/manuals
+Γö£ ╞Æ /[locale]/dashboard/attendance
+Γö£ ╞Æ /[locale]/dashboard/audit
+Γö£ ╞Æ /[locale]/dashboard/audit-logs
+Γö£ ╞Æ /[locale]/dashboard/audit/activity
+Γö£ ╞Æ /[locale]/dashboard/branches
+Γö£ ╞Æ /[locale]/dashboard/clearance
+Γö£ ╞Æ /[locale]/dashboard/clearance/[id]
+Γö£ ╞Æ /[locale]/dashboard/companies
+Γö£ ╞Æ /[locale]/dashboard/demo-licenses
+Γö£ ╞Æ /[locale]/dashboard/departments
+Γö£ ╞Æ /[locale]/dashboard/departments/[id]
+Γö£ ╞Æ /[locale]/dashboard/departments/add
+Γö£ ╞Æ /[locale]/dashboard/documents
+Γö£ ╞Æ /[locale]/dashboard/documents/generate/[id]
+Γö£ ╞Æ /[locale]/dashboard/documents/print/[id]
+Γö£ ╞Æ /[locale]/dashboard/ecommerce
+Γö£ ╞Æ /[locale]/dashboard/ecommerce/customers
+Γö£ ╞Æ /[locale]/dashboard/ecommerce/orders
+Γö£ ╞Æ /[locale]/dashboard/ecommerce/products
+Γö£ ╞Æ /[locale]/dashboard/employees
+Γö£ ╞Æ /[locale]/dashboard/employees/add
+Γö£ ╞Æ /[locale]/dashboard/employees/edit/[id]
+Γö£ ╞Æ /[locale]/dashboard/employees/view/[id]
+Γö£ ╞Æ /[locale]/dashboard/finance
+Γö£ ╞Æ /[locale]/dashboard/finance/accounts
+Γö£ ╞Æ /[locale]/dashboard/finance/budget
+Γö£ ╞Æ /[locale]/dashboard/finance/journal
+Γö£ ╞Æ /[locale]/dashboard/finance/ledger
+Γö£ ╞Æ /[locale]/dashboard/finance/payments
+Γö£ ╞Æ /[locale]/dashboard/leave
+Γö£ ╞Æ /[locale]/dashboard/membership
+Γö£ ╞Æ /[locale]/dashboard/membership/attendance
+Γö£ ╞Æ /[locale]/dashboard/membership/members
+Γö£ ╞Æ /[locale]/dashboard/membership/members/[id]
+Γö£ ╞Æ /[locale]/dashboard/membership/parking
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/access
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/cameras
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/customers
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/gates
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/kiosk
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/pos
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/qr-access
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/qr-tickets
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/rates
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/reports
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/rfid-cards
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/sessions
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/slots
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/subscriptions
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/vehicles
+Γö£ ╞Æ /[locale]/dashboard/membership/parking/zones
+Γö£ ╞Æ /[locale]/dashboard/membership/payments
+Γö£ ╞Æ /[locale]/dashboard/membership/plans
+Γö£ ╞Æ /[locale]/dashboard/notifications
+Γö£ ╞Æ /[locale]/dashboard/overtime
+Γö£ ╞Æ /[locale]/dashboard/payroll
+Γö£ ╞Æ /[locale]/dashboard/payroll/periods/[id]
+Γö£ ╞Æ /[locale]/dashboard/payroll/periods/[id]/print
+Γö£ ╞Æ /[locale]/dashboard/performance
+Γö£ ╞Æ /[locale]/dashboard/placements
+Γö£ ╞Æ /[locale]/dashboard/placements/[id]
+Γö£ ╞Æ /[locale]/dashboard/placements/new
+Γö£ ╞Æ /[locale]/dashboard/positions
+Γö£ ╞Æ /[locale]/dashboard/positions/[id]
+Γö£ ╞Æ /[locale]/dashboard/positions/add
+Γö£ ╞Æ /[locale]/dashboard/procurement
+Γö£ ╞Æ /[locale]/dashboard/procurement/purchase-orders
+Γö£ ╞Æ /[locale]/dashboard/procurement/returns
+Γö£ ╞Æ /[locale]/dashboard/procurement/rfq
+Γö£ ╞Æ /[locale]/dashboard/procurement/suppliers
+Γö£ ╞Æ /[locale]/dashboard/production
+Γö£ ╞Æ /[locale]/dashboard/production/bom
+Γö£ ╞Æ /[locale]/dashboard/production/routings
+Γö£ ╞Æ /[locale]/dashboard/production/work-orders
+Γö£ ╞Æ /[locale]/dashboard/reports
+Γö£ ╞Æ /[locale]/dashboard/reports/employment-letter
+Γö£ ╞Æ /[locale]/dashboard/roles
+Γö£ ╞Æ /[locale]/dashboard/sales
+Γö£ ╞Æ /[locale]/dashboard/sales/customers
+Γö£ ╞Æ /[locale]/dashboard/sales/invoices
+Γö£ ╞Æ /[locale]/dashboard/sales/orders
+Γö£ ╞Æ /[locale]/dashboard/sales/pos
+Γö£ ╞Æ /[locale]/dashboard/sales/quotations
+Γö£ ╞Æ /[locale]/dashboard/self-service
+Γö£ ╞Æ /[locale]/dashboard/settings
+Γö£ ╞Æ /[locale]/dashboard/settings/id-definitions
+Γö£ ╞Æ /[locale]/dashboard/shifts
+Γö£ ╞Æ /[locale]/dashboard/stock
+Γö£ ╞Æ /[locale]/dashboard/stock/adjustments
+Γö£ ╞Æ /[locale]/dashboard/stock/inventory
+Γö£ ╞Æ /[locale]/dashboard/stock/movements
+Γö£ ╞Æ /[locale]/dashboard/stock/transfers
+Γö£ ╞Æ /[locale]/dashboard/stock/warehouses
+Γö£ ╞Æ /[locale]/dashboard/termination
+Γö£ ╞Æ /[locale]/dashboard/termination/[id]
+Γö£ ╞Æ /[locale]/dashboard/users
+Γö£ ╞Æ /[locale]/dashboard/users/add
+Γö£ ╞Æ /[locale]/dashboard/users/edit/[id]
+Γö£ ╞Æ /[locale]/dashboard/vouchers
+Γö£ ╞Æ /[locale]/dashboard/vouchers/[id]
+Γö£ ╞Æ /[locale]/login
+Γö£ ╞Æ /[locale]/login/admin
+Γö£ ╞Æ /[locale]/login/company
+Γö£ ╞Æ /[locale]/login/employee
+Γö£ ╞Æ /[locale]/login/guest
+Γö£ ╞Æ /api/admin/dashboard
+Γö£ ╞Æ /api/attendance
+Γö£ ╞Æ /api/attendance/[id]
+Γö£ ╞Æ /api/audit-logs
+Γö£ ╞Æ /api/biometric-devices
+Γö£ ╞Æ /api/biometric-devices/[id]
+Γö£ ╞Æ /api/biometric-devices/sync
+Γö£ ╞Æ /api/branches
+Γö£ ╞Æ /api/branches/[id]
+Γö£ ╞Æ /api/clearance
+Γö£ ╞Æ /api/clearance/[id]
+Γö£ ╞Æ /api/clearance/[id]/items
+Γö£ ╞Æ /api/companies
+Γö£ ╞Æ /api/companies/[id]
+Γö£ ╞Æ /api/companies/public
+Γö£ ╞Æ /api/dashboard/stats
+Γö£ ╞Æ /api/demo-licenses
+Γö£ ╞Æ /api/demo-licenses/[id]
+Γö£ ╞Æ /api/departments
+Γö£ ╞Æ /api/departments/[id]
+Γö£ ╞Æ /api/documents
+Γö£ ╞Æ /api/documents/[id]
+Γö£ ╞Æ /api/documents/generate
+Γö£ ╞Æ /api/documents/templates
+Γö£ ╞Æ /api/documents/templates/[id]
+Γö£ ╞Æ /api/employee-shifts
+Γö£ ╞Æ /api/employees
+Γö£ ╞Æ /api/employees/[id]
+Γö£ ╞Æ /api/employees/[id]/bank-letter
+Γö£ ╞Æ /api/employees/[id]/banks
+Γö£ ╞Æ /api/employees/[id]/banks/[bankId]
+Γö£ ╞Æ /api/employees/[id]/dependents
+Γö£ ╞Æ /api/employees/[id]/dependents/[depId]
+Γö£ ╞Æ /api/employees/[id]/documents
+Γö£ ╞Æ /api/employees/[id]/documents/[docId]
+Γö£ ╞Æ /api/employees/[id]/education
+Γö£ ╞Æ /api/employees/[id]/education/[eduId]
+Γö£ ╞Æ /api/employees/[id]/experience
+Γö£ ╞Æ /api/employees/[id]/experience/[expId]
+Γö£ ╞Æ /api/employees/[id]/full-profile
+Γö£ ╞Æ /api/employees/[id]/hobbies
+Γö£ ╞Æ /api/employees/[id]/hobbies/[hobbyId]
+Γö£ ╞Æ /api/employees/[id]/spouse
+Γö£ ╞Æ /api/employees/[id]/spouse/[spouseId]
+Γö£ ╞Æ /api/employees/[id]/termination
+Γö£ ╞Æ /api/employees/[id]/training
+Γö£ ╞Æ /api/employees/[id]/training/[trainingId]
+Γö£ ╞Æ /api/employees/[id]/work-experience
+Γö£ ╞Æ /api/employment-stages
+Γö£ ╞Æ /api/leave-definitions
+Γö£ ╞Æ /api/leave-requests
+Γö£ ╞Æ /api/leave-requests/[id]
+Γö£ ╞Æ /api/leave-types
+Γö£ ╞Æ /api/login
+Γö£ ╞Æ /api/login/company
+Γö£ ╞Æ /api/login/employee
+Γö£ ╞Æ /api/login/employees
+Γö£ ╞Æ /api/login/guest
+Γö£ ╞Æ /api/login/super-admin
+Γö£ ╞Æ /api/membership/attendance
+Γö£ ╞Æ /api/membership/attendance/check-in
+Γö£ ╞Æ /api/membership/attendance/check-out
+Γö£ ╞Æ /api/membership/attendance/history
+Γö£ ╞Æ /api/membership/members
+Γö£ ╞Æ /api/membership/members/[id]
+Γö£ ╞Æ /api/membership/members/next-id
+Γö£ ╞Æ /api/membership/parking/cameras
+Γö£ ╞Æ /api/membership/parking/cameras/[id]
+Γö£ ╞Æ /api/membership/parking/chapa/callback
+Γö£ ╞Æ /api/membership/parking/chapa/initialize
+Γö£ ╞Æ /api/membership/parking/chapa/verify/[tx_ref]
+Γö£ ╞Æ /api/membership/parking/customers
+Γö£ ╞Æ /api/membership/parking/customers/[id]
+Γö£ ╞Æ /api/membership/parking/customers/next-id
+Γö£ ╞Æ /api/membership/parking/gates
+Γö£ ╞Æ /api/membership/parking/gates/[id]
+Γö£ ╞Æ /api/membership/parking/kiosk
+Γö£ ╞Æ /api/membership/parking/kiosk/lookup
+Γö£ ╞Æ /api/membership/parking/payments
+Γö£ ╞Æ /api/membership/parking/payments/[id]
+Γö£ ╞Æ /api/membership/parking/qr-tickets
+Γö£ ╞Æ /api/membership/parking/qr-tickets/[id]
+Γö£ ╞Æ /api/membership/parking/rates
+Γö£ ╞Æ /api/membership/parking/rates/[id]
+Γö£ ╞Æ /api/membership/parking/reports/access-logs
+Γö£ ╞Æ /api/membership/parking/reports/controller-swipes
+Γö£ ╞Æ /api/membership/parking/reports/subscriptions
+Γö£ ╞Æ /api/membership/parking/rfid-card-lookup
+Γö£ ╞Æ /api/membership/parking/rfid-cards
+Γö£ ╞Æ /api/membership/parking/rfid-cards/[id]
+Γö£ ╞Æ /api/membership/parking/sessions
+Γö£ ╞Æ /api/membership/parking/sessions/[id]
+Γö£ ╞Æ /api/membership/parking/slots
+Γö£ ╞Æ /api/membership/parking/slots/[id]
+Γö£ ╞Æ /api/membership/parking/stats
+Γö£ ╞Æ /api/membership/parking/subscriptions
+Γö£ ╞Æ /api/membership/parking/subscriptions/[id]
+Γö£ ╞Æ /api/membership/parking/vehicles
+Γö£ ╞Æ /api/membership/parking/vehicles/[id]
+Γö£ ╞Æ /api/membership/parking/zones
+Γö£ ╞Æ /api/membership/parking/zones/[id]
+Γö£ ╞Æ /api/membership/payments
+Γö£ ╞Æ /api/membership/plans
+Γö£ ╞Æ /api/membership/plans/[id]
+Γö£ ╞Æ /api/modules
+Γö£ ╞Æ /api/notifications
+Γö£ ╞Æ /api/notifications/[id]
+Γö£ ╞Æ /api/overtime
+Γö£ ╞Æ /api/overtime/[id]
+Γö£ ╞Æ /api/parking/access
+Γö£ ╞Æ /api/parking/access/live
+Γö£ ╞Æ /api/parking/access/logs
+Γö£ ╞Æ /api/parking/access/qr-live
+Γö£ ╞Æ /api/parking/access/qr-lookup
+Γö£ ╞Æ /api/parking/access/relay
+Γö£ ╞Æ /api/parking/access/swipes
+Γö£ ╞Æ /api/paye-brackets
+Γö£ ╞Æ /api/payroll
+Γö£ ╞Æ /api/payroll-items
+Γö£ ╞Æ /api/payroll/[id]
+Γö£ ╞Æ /api/payroll/enhanced
+Γö£ ╞Æ /api/payroll/items/[id]
+Γö£ ╞Æ /api/payroll/periods
+Γö£ ╞Æ /api/payroll/periods/[id]
+Γö£ ╞Æ /api/payroll/process
+Γö£ ╞Æ /api/pension-contributions
+Γö£ ╞Æ /api/pension-settings
+Γö£ ╞Æ /api/performance
+Γö£ ╞Æ /api/performance/[id]
+Γö£ ╞Æ /api/placements
+Γö£ ╞Æ /api/placements/[id]
+Γö£ ╞Æ /api/placements/[id]/benefits
+Γö£ ╞Æ /api/placements/[id]/benefits/[benId]
+Γö£ ╞Æ /api/positions
+Γö£ ╞Æ /api/positions/[id]
+Γö£ ╞Æ /api/roles
+Γö£ ╞Æ /api/roles/[id]/permissions
+Γö£ ╞Æ /api/search
+Γö£ ╞Æ /api/self-service/attendance
+Γö£ ╞Æ /api/self-service/leave
+Γö£ ╞Æ /api/self-service/profile
+Γö£ ╞Æ /api/settings
+Γö£ ╞Æ /api/settings/id-definitions
+Γö£ ╞Æ /api/settings/id-definitions/[id]
+Γö£ ╞Æ /api/shifts
+Γö£ ╞Æ /api/shifts/[id]
+Γö£ ╞Æ /api/stock/categories
+Γö£ ╞Æ /api/stock/dashboard
+Γö£ ╞Æ /api/stock/items
+Γö£ ╞Æ /api/stock/items/[id]
+Γö£ ╞Æ /api/stock/movements
+Γö£ ╞Æ /api/stock/warehouses
+Γö£ ╞Æ /api/stock/warehouses/[id]
+Γö£ ╞Æ /api/users
+Γö£ ╞Æ /api/users/[id]
+Γö£ ╞Æ /api/vouchers
+Γö£ ╞Æ /api/vouchers/[id]
+Γö£ ╞Æ /api/vouchers/[id]/items
+Γöö ╞Æ /api/vouchers/[id]/items/[itemId]
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
