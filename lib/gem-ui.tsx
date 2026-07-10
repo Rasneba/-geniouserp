@@ -119,7 +119,7 @@ export function GemTable({ headers, rows }: { headers: string[]; rows?: ReactNod
   );
 }
 
-export function GemBadge({ children, variant = "default" }: { children: ReactNode; variant?: "default" | "success" | "warning" | "danger" | "info" }) {
+export function GemBadge({ children, variant = "default", className = "" }: { children: ReactNode; variant?: "default" | "success" | "warning" | "danger" | "info"; className?: string }) {
   const colorMap: Record<string, { bg: string; text: string }> = {
     default: { bg: "var(--sidebar-hover)", text: "var(--text-secondary)" },
     success: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
@@ -130,7 +130,7 @@ export function GemBadge({ children, variant = "default" }: { children: ReactNod
   const c = colorMap[variant] || colorMap.default;
   return (
     <span
-      className="px-3 py-1 rounded-full text-xs font-semibold inline-block"
+      className={`px-3 py-1 rounded-full text-xs font-semibold inline-block ${className}`}
       style={{ background: c.bg, color: c.text }}
     >
       {children}
