@@ -30,8 +30,8 @@ const CONTROLLER_AUTH = Buffer.from(`${CFG.CONTROLLER_USERNAME}:${CFG.CONTROLLER
 const CONTROLLER_HEADERS = { Authorization: `Basic ${CONTROLLER_AUTH}` };
 const FETCH_OPTS = { headers: CONTROLLER_HEADERS };
 
-let lastEventTime = "";
-let lastEventCard = "";
+let lastEventId = "0";
+const lastSwipeAt = {};
 
 async function query(sql, params = []) {
   try {
@@ -178,10 +178,11 @@ async function pollEvents() {
   if (!m) return;
   try {
     const ev = JSON.parse(m[1]);
-    if (!ev.Card) return;
-    const evKey = `${ev.Card}@${ev.Time}`;
-    if (evKey === lastEventCard) return;
-    lastEventCard = evKey;
+    if (!ev.Card || !ev.ID) return;
+    const now = Date.now();
+    const last = lastSwipeAt[ev.Card] || 0;
+    if (now - last < 3000) return;
+    lastSwipeAt[ev.Card] = now;
     const cardUid = ev.Card;
     console.log(`  SWIPE card=${cardUid} time=${ev.Time} reader=${ev.Reader || "?"}`);
     const lookup = await lookupCard(cardUid);
