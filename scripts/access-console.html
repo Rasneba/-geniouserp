@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access Control Console</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+  body { background: #0f172a; color: #e2e8f0; display: flex; min-height: 100vh; }
+  .sidebar { width: 280px; background: #1e293b; padding: 24px; border-right: 1px solid #334155; }
+  .sidebar h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 16px; }
+  .sidebar .info { font-size: 13px; margin-bottom: 8px; }
+  .sidebar .info span { color: #94a3b8; }
+  .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .status-dot.online { background: #22c55e; }
+  .status-dot.offline { background: #ef4444; }
+  .main { flex: 1; padding: 32px; display: flex; flex-direction: column; }
+  .header { margin-bottom: 24px; }
+  .header h1 { font-size: 24px; font-weight: 700; }
+  .header p { color: #64748b; font-size: 14px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 32px; margin-bottom: 16px; border: 1px solid #334155; }
+  .waiting { text-align: center; padding: 60px 20px; }
+  .waiting .icon { font-size: 64px; margin-bottom: 16px; opacity: 0.5; }
+  .waiting h3 { font-size: 20px; color: #94a3b8; }
+  .waiting p { color: #64748b; margin-top: 8px; }
+  .event { display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 8px; margin-bottom: 8px; }
+  .event.granted { background: #052e16; border: 1px solid #166534; }
+  .event.denied { background: #450a0a; border: 1px solid #991b1b; }
+  .event .uid { font-family: monospace; font-size: 18px; font-weight: 700; }
+  .event .name { font-size: 14px; color: #cbd5e1; }
+  .event .time { font-size: 12px; color: #64748b; }
+  .event .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .badge.granted { background: #22c55e; color: #052e16; }
+  .badge.denied { background: #ef4444; color: #450a0a; }
+  .log { margin-top: auto; border-top: 1px solid #334155; padding-top: 16px; }
+  .log-entry { font-size: 12px; color: #64748b; font-family: monospace; margin-bottom: 4px; }
+  .config-section { margin-bottom: 24px; }
+  .config-section label { font-size: 12px; color: #94a3b8; display: block; margin-bottom: 4px; }
+  .config-section input { width: 100%; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #e2e8f0; font-size: 13px; margin-bottom: 8px; }
+  .config-section button { background: #3b82f6; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .config-section button:hover { background: #2563eb; }
+  .event-list { max-height: 400px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h2>Access Controller</h2>
+  <div class="info"><span id="ctrlStatus" class="status-dot offline"></span>Controller: <span id="ctrlIp">192.168.0.68</span></div>
+  <div class="info">Last Seen: <span id="lastSeen">—</span></div>
+  <hr style="border-color:#334155;margin:16px 0">
+  <h2>HRMS Connection</h2>
+  <div class="config-section">
+    <label>API URL</label>
+    <input type="text" id="apiUrl" placeholder="https://your-app.vercel.app" value="http://localhost:3000">
+    <label>Token</label>
+    <input type="password" id="apiToken" placeholder="eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBnbWFpbC5jb20iLCJyb2xlIjoiYWRtaW4iLCJjb21wYW55X2lkIjoxLCJjb21wYW55X25hbWUiOiJHYXN0IFNvbGFyIE1lY2hhbmljcyBQTEMiLCJjb21wYW55X3RpbiI6IlRJTi0wMDAwMDEiLCJpYXQiOjE3ODM1MjIwODcsImV4cCI6MTc4MzYwODQ4N30.jl6xKq2e8WP4EKmnOkrVpR_itru6VPPJTTAM3OcX2DU">
+    <button onclick="saveConfig()">Save & Connect</button>
+    <div id="hrmsStatus" style="margin-top:8px;font-size:12px;color:#64748b">Not configured</div>
+  </div>
+  <hr style="border-color:#334155;margin:16px 0">
+  <h2>Recent Log</h2>
+  <div id="logContainer" style="font-size:11px;color:#64748b;font-family:monospace;max-height:200px;overflow-y:auto"></div>
+</div>
+
+<div class="main">
+  <div class="header">
+    <h1>Door Access Console</h1>
+    <p>Present an RFID card to the reader</p>
+  </div>
+
+  <div id="waitingScreen" class="card waiting">
+    <div class="icon">🏛️</div>
+    <h3>Waiting for card...</h3>
+    <p>Present RFID card to the reader at the gate</p>
+  </div>
+
+  <div id="resultScreen" class="card" style="display:none">
+    <div id="eventDisplay" class="event">
+      <div style="flex:1">
+        <div class="uid" id="resultUid"></div>
+        <div class="name" id="resultName"></div>
+        <div class="time" id="resultTime"></div>
+      </div>
+      <div>
+        <div class="badge" id="resultBadge"></div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;text-align:center" id="resultSub"></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;font-size:13px;color:#94a3b8" id="resultDetail"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font-size:14px;color:#94a3b8">Swipe History</h3>
+      <span style="font-size:12px;color:#64748b" id="historyCount">0 events</span>
+    </div>
+    <div id="historyList" class="event-list">
+      <div style="text-align:center;padding:20px;color:#64748b;font-size:13px">No events yet</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CONFIG_KEY = "accessConsoleConfig";
+const CONTROLLER_IP = "192.168.0.68";
+const CONTROLLER_PORT = 80;
+let config = { apiUrl: "", token: "" };
+let lastEventId = "0";
+let pollTimer = null;
+let controllerPollTimer = null;
+
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem(CONFIG_KEY);
+    if (saved) config = JSON.parse(saved);
+    document.getElementById("apiUrl").value = config.apiUrl || "";
+    document.getElementById("apiToken").value = config.token || "";
+  } catch {}
+}
+
+function saveConfig() {
+  config.apiUrl = document.getElementById("apiUrl").value.trim();
+  config.token = document.getElementById("apiToken").value.trim();
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  document.getElementById("hrmsStatus").textContent = config.apiUrl && config.token ? "Connected" : "Not configured";
+  document.getElementById("hrmsStatus").style.color = config.apiUrl && config.token ? "#22c55e" : "#64748b";
+  if (config.apiUrl && config.token) startPolling();
+}
+
+function log(msg) {
+  const el = document.getElementById("logContainer");
+  const t = new Date().toLocaleTimeString();
+  el.innerHTML = `<div>${t} ${msg}</div>` + el.innerHTML;
+  if (el.children.length > 50) el.removeChild(el.lastChild);
+}
+
+function addHistory(event) {
+  const list = document.getElementById("historyList");
+  const empty = list.querySelector("div:only-child");
+  if (empty && empty.textContent === "No events yet") list.innerHTML = "";
+
+  const div = document.createElement("div");
+  div.className = `event ${event.granted ? "granted" : "denied"}`;
+  div.innerHTML = `
+    <div style="flex:1">
+      <div class="uid">${event.cardUid}</div>
+      <div class="name">${event.memberName || "Unknown"}</div>
+      <div class="time">${event.time}</div>
+    </div>
+    <div>
+      <span class="badge ${event.granted ? "granted" : "denied"}">${event.granted ? "GRANTED" : event.reason}</span>
+    </div>
+  `;
+  list.insertBefore(div, list.firstChild);
+  document.getElementById("historyCount").textContent = `${list.children.length} events`;
+}
+
+function showResult(event) {
+  const waiting = document.getElementById("waitingScreen");
+  const result = document.getElementById("resultScreen");
+  waiting.style.display = "none";
+  result.style.display = "block";
+
+  document.getElementById("resultUid").textContent = event.cardUid;
+  document.getElementById("resultName").textContent = event.memberName || "Unknown card";
+  document.getElementById("resultTime").textContent = event.time;
+
+  const badge = document.getElementById("resultBadge");
+  const sub = document.getElementById("resultSub");
+  const detail = document.getElementById("resultDetail");
+
+  if (event.granted) {
+    badge.textContent = "ACCESS GRANTED";
+    badge.className = "badge granted";
+    sub.textContent = "Door opened";
+    detail.textContent = event.doorMsg || "";
+    eventDisplay.className = "event granted";
+  } else {
+    badge.textContent = "DENIED";
+    badge.className = "badge denied";
+    sub.textContent = event.reason;
+    detail.textContent = event.detail || "";
+    eventDisplay.className = "event denied";
+  }
+
+  setTimeout(() => {
+    waiting.style.display = "block";
+    result.style.display = "none";
+  }, 5000);
+}
+
+async function checkControllerOnline() {
+  try {
+    const res = await fetch(`http://${CONTROLLER_IP}:${CONTROLLER_PORT}/index.htm`, { signal: AbortSignal.timeout(2000) });
+    if (res.ok) {
+      document.getElementById("ctrlStatus").className = "status-dot online";
+      document.getElementById("lastSeen").textContent = new Date().toLocaleTimeString();
+      return true;
+    }
+  } catch {}
+  document.getElementById("ctrlStatus").className = "status-dot offline";
+  return false;
+}
+
+async function fetchEvent() {
+  try {
+    const res = await fetch(`http://${CONTROLLER_IP}:${CONTROLLER_PORT}/Event.xml?ID=${lastEventId}`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    const text = await res.text();
+    const match = text.match(/<response>(.*?)<\/response>/);
+    if (!match) return null;
+    return JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+async function openDoor() {
+  try {
+    const url = `http://${CONTROLLER_IP}:${CONTROLLER_PORT}/Control.htm?OpenDoor=1&DoorID=0`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    return res.ok ? "Door command sent" : `Controller responded ${res.status}`;
+  } catch (err) {
+    return `Failed: ${err.message}`;
+  }
+}
+
+async function checkHrms(cardUid) {
+  try {
+    const res = await fetch(`${config.apiUrl}/api/membership/parking/rfid-cards/lookup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.token}` },
+      body: JSON.stringify({ card_uid: cardUid }),
+      signal: AbortSignal.timeout(5000),
+    });
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+async function pollEvents() {
+  const event = await fetchEvent();
+  if (!event || !event.ID || event.ID === lastEventId) return;
+  lastEventId = event.ID;
+
+  log(`Event #${event.ID}: card=${event.Card} note="${event.Note}"`);
+
+  if (!event.Card) return;
+
+  const time = new Date().toLocaleString();
+  const cardUid = event.Card;
+
+  // Check if it's an invalid card event (card not in controller DB)
+  if (event.Note === "Invalid card" || event.Note === "Card swiped" || event.Card) {
+    log(`Checking ${cardUid} with HRMS...`);
+    const result = await checkHrms(cardUid);
+
+    if (result && result.granted) {
+      log(`Access GRANTED — opening door`);
+      const doorMsg = await openDoor();
+      addHistory({ cardUid, memberName: result.member?.name, time, granted: true, reason: "ACCESS_GRANTED", doorMsg });
+      showResult({ cardUid, memberName: result.member?.name, time, granted: true, doorMsg });
+    } else {
+      const reason = result?.reason || "NO_RESPONSE";
+      log(`Access DENIED — ${reason}`);
+      addHistory({ cardUid, memberName: result?.member?.name, time, granted: false, reason });
+      showResult({ cardUid, memberName: result?.member?.name, time, granted: false, reason, detail: result?.message });
+    }
+  }
+}
+
+async function controllerHeartbeat() {
+  const online = await checkControllerOnline();
+  if (online && config.apiUrl && config.token) {
+    startPolling();
+  }
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollEvents, 1000);
+  document.getElementById("hrmsStatus").textContent = "Polling events...";
+  document.getElementById("hrmsStatus").style.color = "#22c55e";
+  log("Started polling controller events");
+}
+
+loadConfig();
+if (config.apiUrl && config.token) saveConfig();
+
+setInterval(controllerHeartbeat, 5000);
+controllerHeartbeat();
+</script>
+</body>
+</html>
