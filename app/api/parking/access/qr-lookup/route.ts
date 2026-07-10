@@ -36,6 +36,22 @@ export async function POST(req: Request) {
       const sub = subRes.rows[0];
       const today = new Date().toISOString().split("T")[0];
 
+      const recentScan = await pool.query(
+        `SELECT id FROM rfid_access_logs
+         WHERE subscription_id = $1 AND event_type = 'QR_SCAN' AND granted = true
+         AND time > NOW() - INTERVAL '5 seconds'
+         ORDER BY time DESC LIMIT 1`,
+        [sub.id]
+      );
+      if (recentScan.rows.length > 0) {
+        return ok({
+          granted: true, reason: "ACCESS_GRANTED", message: "Access granted (deduplicated)",
+          member: { id: sub.customer_id, name: sub.member_name, phone: sub.member_phone, code: sub.member_code },
+          subscription: { id: sub.id, status: sub.status, end_date: sub.end_date, plan_name: sub.plan_name },
+          days_remaining: daysBetween(sub.end_date),
+        });
+      }
+
       const denyChecks = [
         { cond: sub.status === "cancelled", reason: "SUBSCRIPTION_CANCELLED", msg: "Subscription is cancelled" },
         { cond: sub.status === "expired" || sub.end_date < today, reason: "SUBSCRIPTION_EXPIRED", msg: "Subscription has expired" },

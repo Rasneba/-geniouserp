@@ -36,6 +36,9 @@ export default function QRAccessPage() {
   const [lastScanResult, setLastScanResult] = useState<any>(null);
   const scannerRef = useRef<any>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
+  const lastScanKey = useRef<string>("");
+  const lastScanTime = useRef<number>(0);
+  const processingRef = useRef<boolean>(false);
 
   const cellPad = density === "compact" ? "py-2 px-3" : "py-3.5 px-4";
   const textSize = density === "compact" ? "text-[11px]" : "text-xs";
@@ -135,21 +138,33 @@ export default function QRAccessPage() {
   };
 
   const processQrScan = useCallback(async (rawText: string) => {
+    const now = Date.now();
+    if (processingRef.current) return;
+    if (rawText === lastScanKey.current && now - lastScanTime.current < 5000) return;
+
     let parsed: any;
     try { parsed = JSON.parse(rawText); } catch { return; }
     if (!parsed || parsed.t !== "sub" || !parsed.sid) return;
 
-    const lookup = await lookupQr(parsed);
-    const granted = lookup?.granted || false;
-    const name = lookup?.member?.name || null;
-    const plan = lookup?.subscription?.plan_name || null;
-    const days = lookup?.days_remaining ?? 0;
+    processingRef.current = true;
+    lastScanKey.current = rawText;
+    lastScanTime.current = now;
 
-    setLastScanResult({
-      id: Date.now(), card: `QR-${parsed.sid}`, name, granted,
-      plan, days, note: lookup?.message || lookup?.reason || "Unknown",
-    });
-    setTimeout(() => setLastScanResult(null), 8000);
+    try {
+      const lookup = await lookupQr(parsed);
+      const granted = lookup?.granted || false;
+      const name = lookup?.member?.name || null;
+      const plan = lookup?.subscription?.plan_name || null;
+      const days = lookup?.days_remaining ?? 0;
+
+      setLastScanResult({
+        id: Date.now(), card: `QR-${parsed.sid}`, name, granted,
+        plan, days, note: lookup?.message || lookup?.reason || "Unknown",
+      });
+      setTimeout(() => setLastScanResult(null), 8000);
+    } finally {
+      processingRef.current = false;
+    }
   }, []);
 
   const startScanner = useCallback(async () => {
