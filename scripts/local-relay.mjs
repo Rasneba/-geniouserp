@@ -145,10 +145,10 @@ async function pollTasks() {
 }
 
 async function pollEvents() {
-  const xml = await controllerFetch(`/GEvent.xml?ID=${lastEventId}`);
-  if (!xml) return;
-  xml = xml.replace(/>\s+</g, "><").replace(/\s+/g, " ");
-  const m = xml.match(/<response>(.*?)<\/response>/);
+  let raw = await controllerFetch(`/Event.xml?ID=${lastEventId}`);
+  if (!raw) return;
+  raw = raw.replace(/>\s+</g, "><").replace(/\s+/g, " ");
+  const m = raw.match(/<response>(.*?)<\/response>/);
   if (!m) return;
   try {
     const ev = JSON.parse(m[1]);
@@ -175,7 +175,7 @@ console.log(`  Controller: ${CONTROLLER}`);
 console.log("═".repeat(50));
 
 console.log("  Testing controller...");
-controllerFetch("/GEvent.xml?ID=0").then((r) => console.log(`  Controller: ${r ? "OK" : "no response"}`));
+controllerFetch("/Event.xml?ID=0").then((r) => console.log(`  Controller: ${r ? "OK" : "no response"}`));
 
 console.log("  Testing database...");
 query("SELECT 1 AS ok").then((r) => console.log(`  Database: ${r ? "connected" : "FAILED"}`));
