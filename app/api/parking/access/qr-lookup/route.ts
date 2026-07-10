@@ -7,7 +7,7 @@ export async function POST(req: Request) {
   return withAuth(req, async (user) => {
     try {
       const body = await req.json();
-      const { subscription_id, company_id, member_id } = body;
+      const { subscription_id, company_id } = body;
       if (!subscription_id) return badRequest("subscription_id is required");
 
       const cid = company_id || user.company_id;
@@ -24,128 +24,59 @@ export async function POST(req: Request) {
       );
 
       if (subRes.rows.length === 0) {
-        return ok({
-          granted: false,
-          reason: "SUBSCRIPTION_NOT_FOUND",
-          message: "QR subscription not found",
+        await logAccess({
+          company_id: cid, card_uid: `QR-${subscription_id}`, member_id: null,
+          member_name: null, granted: false, reason: "SUBSCRIPTION_NOT_FOUND",
+          message: "QR subscription not found", days_remaining: 0, door_opened: false,
+          event_type: "QR_SCAN",
         });
+        return ok({ granted: false, reason: "SUBSCRIPTION_NOT_FOUND", message: "QR subscription not found" });
       }
 
       const sub = subRes.rows[0];
       const today = new Date().toISOString().split("T")[0];
 
-      if (sub.status === "cancelled") {
-        await logAccess({
-          company_id: cid,
-          card_uid: `QR-${subscription_id}`,
-          member_id: sub.customer_id,
-          member_name: sub.member_name,
-          granted: false,
-          reason: "SUBSCRIPTION_CANCELLED",
-          message: "Subscription is cancelled",
-          days_remaining: 0,
-          door_opened: false,
-          plan_name: sub.plan_name,
-          subscription_id: sub.id,
-        });
-        return ok({
-          granted: false,
-          reason: "SUBSCRIPTION_CANCELLED",
-          message: "Subscription is cancelled",
-          member: { id: sub.customer_id, name: sub.member_name },
-          subscription: { id: sub.id, status: sub.status, plan_name: sub.plan_name },
-        });
-      }
+      const denyChecks = [
+        { cond: sub.status === "cancelled", reason: "SUBSCRIPTION_CANCELLED", msg: "Subscription is cancelled" },
+        { cond: sub.status === "expired" || sub.end_date < today, reason: "SUBSCRIPTION_EXPIRED", msg: "Subscription has expired" },
+        { cond: sub.status === "frozen", reason: "SUBSCRIPTION_FROZEN", msg: "Subscription is frozen" },
+        { cond: sub.start_date > today, reason: "SUBSCRIPTION_NOT_STARTED", msg: "Subscription not yet active" },
+      ];
 
-      if (sub.status === "expired" || sub.end_date < today) {
-        await logAccess({
-          company_id: cid,
-          card_uid: `QR-${subscription_id}`,
-          member_id: sub.customer_id,
-          member_name: sub.member_name,
-          granted: false,
-          reason: "SUBSCRIPTION_EXPIRED",
-          message: "Subscription has expired",
-          days_remaining: 0,
-          door_opened: false,
-          plan_name: sub.plan_name,
-          subscription_id: sub.id,
-        });
-        return ok({
-          granted: false,
-          reason: "SUBSCRIPTION_EXPIRED",
-          message: "Subscription has expired",
-          member: { id: sub.customer_id, name: sub.member_name },
-          subscription: { id: sub.id, status: sub.status, end_date: sub.end_date, plan_name: sub.plan_name },
-        });
-      }
-
-      if (sub.status === "frozen") {
-        await logAccess({
-          company_id: cid,
-          card_uid: `QR-${subscription_id}`,
-          member_id: sub.customer_id,
-          member_name: sub.member_name,
-          granted: false,
-          reason: "SUBSCRIPTION_FROZEN",
-          message: "Subscription is frozen",
-          days_remaining: 0,
-          door_opened: false,
-          plan_name: sub.plan_name,
-          subscription_id: sub.id,
-        });
-        return ok({
-          granted: false,
-          reason: "SUBSCRIPTION_FROZEN",
-          message: "Subscription is frozen",
-          member: { id: sub.customer_id, name: sub.member_name },
-          subscription: { id: sub.id, status: sub.status, plan_name: sub.plan_name },
-        });
-      }
-
-      if (sub.start_date > today) {
-        await logAccess({
-          company_id: cid,
-          card_uid: `QR-${subscription_id}`,
-          member_id: sub.customer_id,
-          member_name: sub.member_name,
-          granted: false,
-          reason: "SUBSCRIPTION_NOT_STARTED",
-          message: "Subscription not yet active",
-          days_remaining: 0,
-          door_opened: false,
-          plan_name: sub.plan_name,
-          subscription_id: sub.id,
-        });
-        return ok({
-          granted: false,
-          reason: "SUBSCRIPTION_NOT_STARTED",
-          message: "Subscription not yet active",
-          member: { id: sub.customer_id, name: sub.member_name },
-          subscription: { id: sub.id, status: sub.status, start_date: sub.start_date, plan_name: sub.plan_name },
-        });
+      for (const check of denyChecks) {
+        if (check.cond) {
+          await logAccess({
+            company_id: cid, card_uid: `QR-${subscription_id}`,
+            member_id: sub.customer_id, member_name: sub.member_name,
+            granted: false, reason: check.reason, message: check.msg,
+            days_remaining: 0, door_opened: false,
+            plan_name: sub.plan_name, subscription_id: sub.id, event_type: "QR_SCAN",
+          });
+          return ok({
+            granted: false, reason: check.reason, message: check.msg,
+            member: { id: sub.customer_id, name: sub.member_name },
+            subscription: { id: sub.id, status: sub.status, plan_name: sub.plan_name },
+          });
+        }
       }
 
       const daysRemaining = daysBetween(sub.end_date);
 
       await logAccess({
-        company_id: cid,
-        card_uid: `QR-${subscription_id}`,
-        member_id: sub.customer_id,
-        member_name: sub.member_name,
-        granted: true,
-        reason: "ACCESS_GRANTED",
-        message: "QR access granted",
-        days_remaining: daysRemaining,
-        door_opened: true,
-        plan_name: sub.plan_name,
-        subscription_id: sub.id,
+        company_id: cid, card_uid: `QR-${subscription_id}`,
+        member_id: sub.customer_id, member_name: sub.member_name,
+        granted: true, reason: "ACCESS_GRANTED", message: "QR access granted",
+        days_remaining: daysRemaining, door_opened: true,
+        plan_name: sub.plan_name, subscription_id: sub.id, event_type: "QR_SCAN",
       });
 
+      await pool.query(
+        `INSERT INTO relay_commands (company_id, action, payload, status) VALUES ($1, 'open_door', $2, 'pending')`,
+        [cid, JSON.stringify({ source: "QR_SCAN", subscription_id: sub.id })]
+      );
+
       return ok({
-        granted: true,
-        reason: "ACCESS_GRANTED",
-        message: "Access granted",
+        granted: true, reason: "ACCESS_GRANTED", message: "Access granted",
         member: { id: sub.customer_id, name: sub.member_name, phone: sub.member_phone, code: sub.member_code },
         subscription: { id: sub.id, status: sub.status, end_date: sub.end_date, plan_name: sub.plan_name },
         days_remaining: daysRemaining,

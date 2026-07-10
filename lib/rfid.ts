@@ -20,6 +20,7 @@ export interface AccessLogEntry {
   door_opened: boolean;
   plan_name?: string | null;
   subscription_id?: number | null;
+  event_type?: string | null;
 }
 
 export async function lookupCard(
@@ -83,9 +84,9 @@ export async function lookupCard(
 export async function logAccess(entry: AccessLogEntry): Promise<void> {
   try {
     await pool.query(
-      `INSERT INTO rfid_access_logs (company_id, card_uid, member_id, member_name, granted, reason, message, days_remaining, door_opened, plan_name, subscription_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [entry.company_id, entry.card_uid, entry.member_id, entry.member_name, entry.granted, entry.reason, entry.message, entry.days_remaining, entry.door_opened, entry.plan_name || null, entry.subscription_id || null]
+      `INSERT INTO rfid_access_logs (company_id, card_uid, member_id, member_name, granted, reason, message, days_remaining, door_opened, plan_name, subscription_id, event_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [entry.company_id, entry.card_uid, entry.member_id, entry.member_name, entry.granted, entry.reason, entry.message, entry.days_remaining, entry.door_opened, entry.plan_name || null, entry.subscription_id || null, entry.event_type || null]
     );
   } catch {}
 }
