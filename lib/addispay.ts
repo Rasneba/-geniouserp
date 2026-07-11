@@ -54,8 +54,6 @@ export async function createOrder(params: AddisPayInitializeParams): Promise<Add
       message: "Parking payment",
     };
 
-    console.log("[AddisPay] Request:", JSON.stringify(body));
-
     const res = await fetch(`${ADDISPAY_API}/checkout-api/v1/create-order`, {
       method: "POST",
       headers: {
@@ -69,8 +67,6 @@ export async function createOrder(params: AddisPayInitializeParams): Promise<Add
     const text = await res.text();
     let json: any;
     try { json = JSON.parse(text); } catch { return { status: "failed", message: text.slice(0, 300) }; }
-
-    console.log("[AddisPay] Response:", JSON.stringify(json));
 
     if (res.ok && json.uuid && json.checkout_url) {
       const baseUrl = json.checkout_url.replace(/\/+$/, "");
@@ -102,8 +98,6 @@ export async function getOrder(uuid: string): Promise<{ status: string; data?: a
     let json: any;
     try { json = JSON.parse(text); } catch { return { status: "failed", message: text.slice(0, 300) }; }
 
-    console.log("[AddisPay] GetOrder:", JSON.stringify(json));
-
     if (res.ok && json.data?.status === true) {
       return { status: "success", data: json.data, message: json.message };
     }
@@ -128,8 +122,6 @@ export async function checkStatus(uuid: string): Promise<{ status: string; data?
     const text = await res.text();
     let json: any;
     try { json = JSON.parse(text); } catch { return { status: "failed", message: text.slice(0, 300) }; }
-
-    console.log("[AddisPay] Status:", JSON.stringify(json));
 
     if (res.ok && json.data?.status === "success") {
       return { status: "success", data: json.data, message: json.message };

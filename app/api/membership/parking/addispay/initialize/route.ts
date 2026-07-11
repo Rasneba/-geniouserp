@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       const session = sessionRes.rows[0];
       const txRef = await generateSequentialId("parking_payments", "reference", "ADP");
       const nonce = `nonce-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const uniqueRef = `${txRef}-${Date.now()}`;
 
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       const result = await createOrder({
@@ -41,10 +42,10 @@ export async function POST(req: Request) {
         first_name: session.owner_name?.split(" ")[0] || "Customer",
         last_name: session.owner_name?.split(" ").slice(1).join(" ") || "",
         phone_number: phone_number || session.owner_phone || "",
-        tx_ref: txRef,
+        tx_ref: uniqueRef,
         nonce,
         redirect_url: return_url || `${appUrl}/dashboard/membership/parking/pos?session=${session.id}`,
-        success_url: `${appUrl}/api/membership/parking/addispay/callback?tx_ref=${txRef}&session_id=${session.id}`,
+        success_url: `${appUrl}/api/membership/parking/addispay/callback?tx_ref=${uniqueRef}&session_id=${session.id}`,
         cancel_url: `${appUrl}/dashboard/membership/parking/pos?session=${session.id}`,
         error_url: `${appUrl}/dashboard/membership/parking/pos?session=${session.id}`,
         order_reason: `Parking payment for ${session.plate_number || session.ticket_number}`,
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
           `INSERT INTO parking_payments (company_id, session_id, vehicle_id, amount, payment_method, reference, notes)
            VALUES ($1, $2, $3, $4, 'addispay', $5, $6)
            ON CONFLICT DO NOTHING`,
-          [user.company_id, session.id, session.vehicle_id, parsedAmount, txRef, `uuid:${result.data.uuid}`]
+          [user.company_id, session.id, session.vehicle_id, parsedAmount, uniqueRef, `uuid:${result.data.uuid}`]
         );
       }
 
