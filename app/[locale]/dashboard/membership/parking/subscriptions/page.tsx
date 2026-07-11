@@ -358,6 +358,8 @@ export default function ParkingSubscriptionsPage() {
                   <option value="cash">Cash</option>
                   <option value="telebirr">Telebirr</option>
                   <option value="cbebirr">CBE Birr</option>
+                  <option value="chapa">Chapa</option>
+                  <option value="addispay">AddisPay</option>
                   <option value="bank">Bank Transfer</option>
                   <option value="credit_card">Credit Card</option>
                   <option value="debit_card">Debit Card</option>

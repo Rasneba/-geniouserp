@@ -29,10 +29,12 @@ function ParkingPosContent() {
   const [qrInput, setQrInput] = useState("");
   const [qrSession, setQrSession] = useState<any>(null);
   const [qrLookupLoading, setQrLookupLoading] = useState(false);
-  const [paymentForm, setPaymentForm] = useState<any>({ session_id: "", amount: "", payment_method: "cash", reference: "", pos_terminal_id: "POS-01", receipt_number: "", paid_by: "", notes: "" });
+  const [paymentForm, setPaymentForm] = useState<any>({ session_id: "", amount: "", payment_method: "cash", reference: "", pos_terminal_id: "POS-01", receipt_number: "", paid_by: "", notes: "", phone: "" });
   const [saving, setSaving] = useState(false);
   const [chapaLoading, setChapaLoading] = useState(false);
   const [chapaUrl, setChapaUrl] = useState("");
+  const [addispayLoading, setAddispayLoading] = useState(false);
+  const [addispayUrl, setAddispayUrl] = useState("");
   const [message, setMessage] = useState("");
   const [tab, setTab] = useState("checkout");
   const [company, setCompany] = useState<any>(null);
@@ -111,7 +113,7 @@ function ParkingPosContent() {
   const selectSession = (session: any) => {
     setSelectedSession(session);
     const fee = calculateFee(session);
-    setPaymentForm({ ...paymentForm, session_id: session.id, amount: fee.toString(), receipt_number: `RCP-${session.ticket_number || Date.now()}`, paid_by: session.customer_name || session.visitor_name || session.owner_name || "" });
+    setPaymentForm({ ...paymentForm, session_id: session.id, amount: fee.toString(), receipt_number: `RCP-${session.ticket_number || Date.now()}`, paid_by: session.customer_name || session.visitor_name || session.owner_name || "", phone: session.customer_phone || session.owner_phone || session.visitor_phone || "" });
     setTab("checkout");
   };
 
@@ -165,7 +167,7 @@ function ParkingPosContent() {
           duration: formatDuration(durationMin), session: selectedSession,
         });
         setSelectedSession(null);
-        setPaymentForm({ session_id: "", amount: "", payment_method: "cash", reference: "", pos_terminal_id: "POS-01", receipt_number: "", paid_by: "", notes: "" });
+        setPaymentForm({ session_id: "", amount: "", payment_method: "cash", reference: "", pos_terminal_id: "POS-01", receipt_number: "", paid_by: "", notes: "", phone: "" });
         load();
       } else { const err = await res.json(); setMessage(`Error: ${err.error}`); }
     } catch { setMessage("Server error"); }
@@ -194,6 +196,34 @@ function ParkingPosContent() {
       const res = await fetch(`/api/membership/parking/chapa/verify/CHAPA-${selectedSession.company_id}-${selectedSession.id}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.status === "success") { setMessage("Chapa payment verified! Session completed."); setSelectedSession(null); load(); }
+      else setMessage(`Verification: ${data.message || "Payment not yet confirmed"}`);
+    } catch { setMessage("Verification error"); }
+    setSaving(false);
+  };
+
+  const handleAddisPayPayment = async () => {
+    if (!token || !selectedSession) return;
+    if (!paymentForm.phone) { setMessage("Phone number is required for AddisPay"); return; }
+    setAddispayLoading(true); setMessage("");
+    try {
+      const res = await fetch("/api/membership/parking/addispay/initialize", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ session_id: selectedSession.id, amount: parseFloat(paymentForm.amount), phone_number: paymentForm.phone, email: selectedSession.owner_email || "", return_url: `${window.location.origin}/dashboard/membership/parking/pos?session=${selectedSession.id}` }),
+      });
+      const data = await res.json();
+      if (data.status === "success" && data.data?.checkout_url) { setAddispayUrl(data.data.checkout_url); window.open(data.data.checkout_url, "_blank"); setMessage("AddisPay checkout opened in new tab. Complete payment there, then verify below."); }
+      else setMessage(`AddisPay error: ${data.message || data.error || "Failed to initialize"}`);
+    } catch { setMessage("Server error"); }
+    setAddispayLoading(false);
+  };
+
+  const verifyAddisPayPayment = async () => {
+    if (!token || !selectedSession) return;
+    setSaving(true); setMessage("");
+    try {
+      const res = await fetch(`/api/membership/parking/addispay/verify/ADP-${selectedSession.company_id}-${selectedSession.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.status === "success") { setMessage("AddisPay payment verified! Session completed."); setSelectedSession(null); load(); }
       else setMessage(`Verification: ${data.message || "Payment not yet confirmed"}`);
     } catch { setMessage("Verification error"); }
     setSaving(false);
@@ -449,7 +479,7 @@ function ParkingPosContent() {
                     <label className="text-sm text-gray-500 font-medium mb-1 block">Payment Method</label>
                     <GemSelect value={paymentForm.payment_method} onChange={e => setPaymentForm({...paymentForm, payment_method: e.target.value})}>
                       <option value="cash">Cash</option><option value="telebirr">Telebirr</option><option value="cbebirr">CBE Birr</option>
-                      <option value="chapa">Chapa</option><option value="santimpay">SantimPay</option><option value="bank">Bank Transfer</option>
+                      <option value="chapa">Chapa</option><option value="addispay">AddisPay</option><option value="santimpay">SantimPay</option><option value="bank">Bank Transfer</option>
                       <option value="pos">POS Machine</option><option value="credit_card">Credit Card</option><option value="debit_card">Debit Card</option>
                     </GemSelect>
                   </div>
@@ -473,11 +503,22 @@ function ParkingPosContent() {
                     <label className="text-sm text-gray-500 font-medium mb-1 block">Notes</label>
                     <textarea className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/30 transition-all" rows={2} value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} />
                   </div>
+                  {paymentForm.payment_method === "addispay" && (
+                    <div className="sm:col-span-3">
+                      <label className="text-sm text-gray-500 font-medium mb-1 block">Phone Number (for AddisPay) <span className="text-red-500">*</span></label>
+                      <GemInput placeholder="09XXXXXXXX or 2519XXXXXXXX" value={paymentForm.phone || ""} onChange={e => setPaymentForm({...paymentForm, phone: e.target.value})} />
+                    </div>
+                  )}
                   <div className="sm:col-span-3">
                     {paymentForm.payment_method === "chapa" ? (
                       <div className="flex gap-2">
                         <GemBtn onClick={handleChapaPayment} className="flex-1">{chapaLoading ? "Connecting to Chapa..." : "Pay with Chapa"}</GemBtn>
                         {chapaUrl && <GemBtnOutline onClick={verifyChapaPayment} className="text-emerald-600">{saving ? "Verifying..." : "Verify Payment"}</GemBtnOutline>}
+                      </div>
+                    ) : paymentForm.payment_method === "addispay" ? (
+                      <div className="flex gap-2">
+                        <GemBtn onClick={handleAddisPayPayment} className="flex-1">{addispayLoading ? "Connecting to AddisPay..." : "Pay with AddisPay"}</GemBtn>
+                        {addispayUrl && <GemBtnOutline onClick={verifyAddisPayPayment} className="text-emerald-600">{saving ? "Verifying..." : "Verify Payment"}</GemBtnOutline>}
                       </div>
                     ) : (
                       <GemBtn type="submit" className="w-full bg-emerald-600" onClick={() => {}}>{saving ? "Processing..." : "Process Payment & Print Receipt"}</GemBtn>

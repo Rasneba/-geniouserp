@@ -29,7 +29,7 @@ The Parking Management System is a complete solution for running a parking facil
 - **Vehicle entry & exit** — via ANPR cameras, QR codes, NFC, or manual
 - **Customer management** — register vehicles, assign subscriptions
 - **Pricing & billing** — flexible rate plans, automatic fee calculation
-- **POS payments** — cash, mobile money (Telebirr, CBE Birr), Chapa, cards
+- **POS payments** — cash, mobile money (Telebirr, CBE Birr), Chapa, AddisPay, cards
 - **QR Kiosk** — self-service entry for walk-in visitors
 - **Reporting** — access logs, subscription reports, CSV export
 
@@ -306,6 +306,7 @@ Process payments and print receipts. **The main checkout terminal.**
 - Telebirr
 - CBE Birr
 - Chapa (online payment)
+- AddisPay (online payment — Telebirr, CBE, M-Pesa)
 - SantimPay
 - Bank Transfer
 - POS Machine
@@ -412,6 +413,7 @@ parking_sessions
 | `db-migration-v14.sql` | All parking tables, views, indexes (full parking module) |
 | `db-migration-v15.sql` | Auto-ID generation system for ticket numbers |
 | `db-migration-v16.sql` | Webcam camera support (protocol + nullable IP) |
+| `db-migration-v31.sql` | AddisPay gateway — adds `addispay` to payment_method CHECK constraints |
 
 ---
 
@@ -450,6 +452,12 @@ Token source: localStorage.getItem("token") after login
 - Webhook: `POST /api/membership/parking/chapa/callback`
 - Verify: `GET /api/membership/parking/chapa/verify/{tx_ref}`
 - Env: `CHAPA_SECRET_KEY`
+
+**AddisPay Payment Gateway:**
+- Initialize: `POST /api/membership/parking/addispay/initialize`
+- Callback: `GET /api/membership/parking/addispay/callback`
+- Verify: `GET /api/membership/parking/addispay/verify/{tx_ref}`
+- Env: `ADDISPAY_SECRET_KEY`, `ADDISPAY_API_URL`
 
 ---
 
@@ -493,6 +501,7 @@ If a rate has a grace period (e.g., 15 min), the first N minutes are free.
 | Telebirr | Mobile Money | Ethiopian mobile payment |
 | CBE Birr | Mobile Money | Commercial Bank of Ethiopia |
 | Chapa | Online Gateway | Ethiopian payment processor (requires internet) |
+| AddisPay | Online Gateway | Ethiopian payment gateway — Telebirr, CBE, M-Pesa (requires internet) |
 | SantimPay | Online Gateway | Alternative payment processor |
 | Bank Transfer | Bank | Manual bank payment |
 | POS Machine | Card Terminal | Physical card reader |
@@ -511,6 +520,35 @@ If a rate has a grace period (e.g., 15 min), the first N minutes are free.
 - `CHAPA_SECRET_KEY` set in `.env`
 - Internet connection
 - Customer must have a phone/email for Chapa notification
+
+### AddisPay (Online Payment)
+
+1. Select **AddisPay** as payment method
+2. Enter customer's **phone number** (required — Ethiopian format: `09XXXXXXXX` or `2519XXXXXXXX`)
+3. Click **Pay with AddisPay** — opens AddisPay checkout in new tab
+4. Customer selects payment method (Telebirr, CBE, M-Pesa, etc.) and completes payment
+5. Return to POS → click **Verify Payment**
+6. System confirms payment via AddisPay API, frees slot, generates receipt
+
+**How it works internally:**
+1. Backend calls `POST /checkout-api/v1/create-order` on AddisPay API
+2. Returns a `checkout_url` + `uuid`
+3. User is redirected to `checkout_url/{uuid}` to complete payment
+4. On verify, backend calls `GET /checkout-api/v1/transaction/check-status?uuid=...`
+5. If status is `success`, session is marked as paid
+
+**API Endpoints:**
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/membership/parking/addispay/initialize` | POST | Create order, get checkout URL |
+| `/api/membership/parking/addispay/callback` | GET | Payment callback (redirect from AddisPay) |
+| `/api/membership/parking/addispay/verify/{tx_ref}` | GET | Manual verification (authenticated) |
+
+**Requirements:**
+- `ADDISPAY_SECRET_KEY` set in `.env`
+- `ADDISPAY_API_URL` set in `.env` (default: `https://uat.api.addispay.et`)
+- Internet connection
+- Customer must have an Ethiopian phone number
 
 ---
 
@@ -608,7 +646,11 @@ JWT_SECRET=your_jwt_secret_key
 # Chapa Payment Gateway
 CHAPA_SECRET_KEY=your_chapa_secret_key
 
-# Application URL (for Chapa callbacks)
+# AddisPay Payment Gateway
+ADDISPAY_SECRET_KEY=your_addispay_api_key
+ADDISPAY_API_URL=https://uat.api.addispay.et
+
+# Application URL (for payment callbacks)
 NEXT_PUBLIC_APP_URL=https://your-domain.com
 ```
 

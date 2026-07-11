@@ -81,7 +81,7 @@ export default function MembershipPaymentsPage() {
               <label className="text-sm text-gray-500 font-medium mb-1 block">Method</label>
               <GemSelect value={form.payment_method} onChange={(e: any) => setForm({...form, payment_method: e.target.value})}>
                 <option value="cash">Cash</option><option value="bank">Bank Transfer</option><option value="telebirr">Telebirr</option>
-                <option value="cbebirr">CBE Birr</option><option value="credit_card">Credit Card</option>
+                <option value="cbebirr">CBE Birr</option><option value="chapa">Chapa</option><option value="addispay">AddisPay</option><option value="credit_card">Credit Card</option>
               </GemSelect>
             </div>
             <div>
